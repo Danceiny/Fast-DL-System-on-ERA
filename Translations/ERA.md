@@ -1,15 +1,15 @@
 # ERA - A Framework for Economic Resource Allocation for the Cloud (ERA - 为云计算而生的经济型资源分配框架）
 ![](http://opkk27k9n.bkt.clouddn.com/18-3-3/81518610.jpg)
 >总字符数：	72119
-总字符数(不含空白)：	63001
-空白字符数：	9118
-中文字符数：	12216
-英文字符数：	46264
-标点符号数：	3500
-其它字符数：	1021
-中英文单词数：	22121
-非中文单词数：	9905
-内容行数：	477
+>总字符数(不含空白)：	63001
+>空白字符数：	9118
+>中文字符数：	12216
+>英文字符数：	46264
+>标点符号数：	3500
+>其它字符数：	1021
+>中英文单词数：	22121
+>非中文单词数：	9905
+>内容行数：	477
 
 ## Abstract 摘要
 Cloud computing has reached significant maturity from a systems perspective, but currently deployed solutions rely on rather basic economics mechanisms that yield suboptimal allocation of the costly hardware resources. In this paper we present Economic Resource Allocation (ERA), a complete framework for scheduling and pricing cloud resources, aimed at increasing the efficiency of cloud resources usage by allocating resources according to economic principles. The ERA architecture carefully abstracts the underlying cloud infrastructure, enabling the development of scheduling and pricing algorithms independently of the concrete lower-level cloud infrastructure and independently of its concerns. Specifically, ERA is designed as a flexible layer that can sit on top of any cloud system and interfaces with both the cloud resource manager and with the users who reserve resources to run their jobs. The jobs are scheduled based on prices that are dynamically calculated according to the predicted demand. Additionally, ERA provides a key internal API to pluggable algorithmic modules that include scheduling, pricing and demand prediction. We provide a proof-of-concept software and demonstrate the effectiveness of the architecture by testing ERA over both public and private cloud systems –Azure Batch of Microsoft and Hadoop/YARN. A broader intent of our work is to foster collaborations between economics and system communities. To that end, we have developed a simulation platform via which economics and system experts can test their algorithmic implementations.
@@ -75,18 +75,29 @@ Our answer to this challenge is the ERA system (Economic Resource Allocation). T
 
 ***ERA’s key APIs***: ERA has two main outward-facing APIs as well as a key internal API. Figure 1 gives a high-level schematic of the architecture. The first external API faces the users and provides them with the economic reservation model of cloud services described above. The second external API faces the low-level cloud resource manager. It provides a separation of concerns that frees the underlying cloud system from any time-dependent scheduling or from any pricing concerns, and frees the ERA system from the burden of assigning specific processors to specific tasks in a reasonable resource-locality way, or from the low-level mechanics of firing up processes or swapping them out. See more details in Section 2.3.
 
+
+
+***ERA的关键API***：ERA有两个主要的面向外部的API以及一个关键的内部API。图1给出了该架构的高级示意图。第一个外部API面向用户，并为他们提供上述云服务的经济预留模型。第二个外部API面向低级云资源管理器。它提供了一个关注点的分离，可以将基础云系统从任何时间相关的调度或任何定价问题中解放出来，并且可以使ERA系统免于以合理的资源区域方式将特定处理器分配给特定任务的负担，低级别的机制来启动进程或将其交换出去。更多细节见第2.3节。
+
+
+
 Finally, the internal API is to pluggable algorithmic scheduling, pricing, and prediction modules. Our basic scheduling and pricing algorithm dynamically computes future resource prices based on supply and demand, where the demand includes both resources that are already committed to and predicted future requests, and schedules and prices the current request at the “cheapest” possibility. Our basic prediction model uses traces of previous runs to estimate future demand. The flexible algorithmic API then allows for future algorithmic, learning, and economic optimizations. The internal interfaces as well as our basic algorithmic implementations are described in Section 3.
+
+
+
+
+
+最后，内部API是可插入算法调度、定价和预测模块。我们的基本调度和定价算法根据供需情况动态计算未来的资源价格，其中需求既包括已经承诺的预测未来需求的资源，也包括预测未来需求的资源，并以“最便宜”的可能性对当前需求进行计划和定价。我们的基本预测模型使用之前运行的痕迹来估计未来的需求。灵活的算法API允许未来的算法、学习和经济优化。第3节介绍了内部接口以及我们的基本算法实现。
+
 
 
 Our goal in defining this abstraction is more ambitious than mere good software engineering in our system. As part of the goal of fostering a convergence between system and economic considerations, we have also built a flexible cloud simulation framework. The simulator provides an evaluation of key metrics, both “system ones” such as loads or latency, as well as “economic ones” such as “welfare” or revenue, as well as provides a visualization of the results (see screenshot in Figure 2). The simulator was designed to provide a convenient tool both for the cloud system’s manager who is interested in evaluating ERA’s performance as a step toward integration and for researchers who develop new algorithms for ERA and are interested in experimenting with their implementation without the need to run a large cluster. As is illustrated in Figure 1, the same core code that receives actual user requests and runs over the underlying cloud resource manager may be connected instead to the simulator so as to test it under variable loads and alternative cloud models. Comparing the results from our simulator and physical cluster runs, we find the simulator to be faithful (Section 4).
 
-The ERA system is implemented in Java, and an alternative implementation (of a subset of ERA) in C# was also done. We have performed extensive runs of ERA within the simulator as well as proof-of-concept runs with two prominent resource managers in the public and private clouds: the full system was interfaced with Hadoop/YARN [31] and the C# version of the code was interfaced and tested with Microsoft’s Azure Batch（Azure Batch is a cloud-scale job-scheduling and compute management service. https://azure.microsoft.com/en-us/services/batch/） simulator [29]. These runs show that the ERA algorithms succeed in increasing the efficiency of cloud usage, and that ERA can be successfully integrated with real cloud systems. Additionally, we show that the ERA simulator gives a good approximation to the actual run on a cloud system and thus can be a useful tool for developing and testing new algorithms. In Section 4 we present the results of a few of these runs.
-
-***ERA的关键API***：ERA有两个主要的面向外部的API以及一个关键的内部API。图1给出了该架构的高级示意图。第一个外部API面向用户，并为他们提供上述云服务的经济预留模型。第二个外部API面向低级云资源管理器。它提供了一个关注点的分离，可以将基础云系统从任何时间相关的调度或任何定价问题中解放出来，并且可以使ERA系统免于以合理的资源区域方式将特定处理器分配给特定任务的负担，低级别的机制来启动进程或将其交换出去。更多细节见第2.3节。
-
-最后，内部API是可插入算法调度、定价和预测模块。我们的基本调度和定价算法根据供需情况动态计算未来的资源价格，其中需求既包括已经承诺的预测未来需求的资源，也包括预测未来需求的资源，并以“最便宜”的可能性对当前需求进行计划和定价。我们的基本预测模型使用之前运行的痕迹来估计未来的需求。灵活的算法API允许未来的算法、学习和经济优化。第3节介绍了内部接口以及我们的基本算法实现。
-
 我们定义这种抽象的目标比我们的系统中纯粹的软件工程更雄心勃勃。作为促进系统和经济考虑之间融合的目标的一部分，我们还构建了灵活的云模拟框架。模拟器提供关键指标的评估，包括负载或延迟等“系统指标”以及“福利”或收入等“经济指标”，并提供结果可视化（请参见图2中的屏幕截图）。该模拟器旨在为云系统的管理人员提供便利的工具，该管理人员有兴趣评估ERA的性能，以此作为实现整合的一个步骤，以及为ERA开发新算法的研究人员，并且有兴趣在无需运行大集群。如图1所示，接收实际用户请求并通过底层云资源管理器运行的相同核心代码可以连接到模拟器，以便在可变负载和备选云模型下对其进行测试。比较我们模拟器和物理集群运行的结果，我们发现模拟器是可信的（第4节）。
+
+The ERA system is implemented in Java, and an alternative implementation (of a subset of ERA) in C# was also done. We have performed extensive runs of ERA within the simulator as well as proof-of-concept runs with two prominent resource managers in the public and private clouds: the full system was interfaced with Hadoop/YARN [31] and the C# version of the code was interfaced and tested with Microsoft’s Azure Batch（Azure Batch is a cloud-scale job-scheduling and compute management service  https://azure.microsoft.com/en-us/services/batch/） simulator [29]. These runs show that the ERA algorithms succeed in increasing the efficiency of cloud usage, and that ERA can be successfully integrated with real cloud systems. Additionally, we show that the ERA simulator gives a good approximation to the actual run on a cloud system and thus can be a useful tool for developing and testing new algorithms. In Section 4 we present the results of a few of these runs.
+
+
 
 ERA系统是用Java实现的，而C＃中的一个替代实现（ERA的一个子集）也已完成。 我们在模拟器中执行了广泛的ERA运行，并且在公有云和私有云中使用两个着名的资源管理器进行了概念证明运行：完整的系统与Hadoop / YARN [31]以及代码的C＃版本 与微软的Azure Batch（Azure批处理是一种云规模的作业调度和计算管理服务。https://azure.microsoft.com/en-us/services/batch/）模拟器进行了接口和测试[29]。 这些运行表明，ERA算法能够成功提高云使用效率，并且ERA可以与真正的云系统成功整合。 另外，我们证明ERA模拟器可以很好地近似于云系统上的实际运行，因此可以成为开发和测试新算法的有用工具。 在第4节中，我们将介绍这些运行的一些结果。
 
@@ -270,7 +281,7 @@ ERA是一个完整的工作系统：它被实现为一个软件包，提供上�
 
 *The importance of economic allocation 经济分配的重要性*
 
-We first demonstrate the ability of the ERA system to improve the efficiency of cloud resource usage significantly, by considering the jobs’ values. We use the simulator with input of jobs that were sampled according to distributions describing a large-scale MapReduce production trace at Yahoo [9], after some needed modifications of adding deadlines and values that were not included in the original trace. In this input, there are 6 classes of jobs, and about 1,400–1,500 jobs of each class. Jobs of class “yahoo-5” have the largest average size, and we set them to have a low average value per unit of $1, while we set jobs of all other classes to have a high value per unit of $10, to model high-value production jobs. The cluster is way too small to fit all jobs.
+We first demonstrate the ability of the ERA system to improve the efficiency of cloud resource usage significantly, by considering the jobs’ values. We use the simulator with input of jobs that were sampled according to distributions describing a large-scale MapReduce production trace at Yahoo [9], after some needed modifications of adding deadlines and values that were not included in the original trace. In this input, there are 6 classes of jobs, and about 1,400–1,500 jobs of each class. Jobs of class “yahoo-5” have the largest average size, and we set them to have a low average value per unit of ` $1`, while we set jobs of all other classes to have a high value per unit of $10, to model high-value production jobs. The cluster is way too small to fit all jobs.
 
 We compare ERA’s Basic-Econ scheduling algorithm with a greedy algorithm that does not take into account the values of the jobs, but instead charges a fixed price per resource unit, and that schedules the job to run at the earliest possible time within its requested time window. The simulation shows that the greedy algorithm populates most of the cluster with the large, low-value jobs (of class yahoo-5) and results in a low efficiency of only 10% of the total requested value. In sharp contrast, ERA’s Basic-Econ algorithm, which is aware of the values of the jobs and uses dynamic pricing to accept the higher value jobs, achieves 51% of the requested value (note that getting 100% is not possible as the cloud is too small to fit all jobs).
 
