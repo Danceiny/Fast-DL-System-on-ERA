@@ -1,4 +1,9 @@
 # ERA - A Framework for Economic Resource Allocation for the Cloud (ERA - 为云计算而生的经济型资源分配框架）
+
+[中文全文](./ERA_Cn.md)
+
+[英文原文](./ERA_En.md)
+
 ![](http://opkk27k9n.bkt.clouddn.com/18-3-3/81518610.jpg)
 >总字符数：	72119
 >总字符数(不含空白)：	63001
@@ -295,14 +300,15 @@ We next demonstrate that it is feasible to integrate ERA with a real cloud syste
 
 We have fully integrated ERA with Rayon [10], which is a cloud system that handles reservations for computational resources, and is part of Hadoop/YARN [31] (aka MapReduce 2.0). The integration required, first, that we introduce economic considerations into the Rayon system, as Rayon’s original reservation mechanism did not consider the reservations’ monetary valuations. Next, we plugged ERA’s core code into Rayon’s reservation and scheduling process, by adding a layer of simple adapter classes that bridge between ERA’s and Rayon’s APIs. The bridging layer configured Rayon to completely follow ERA’s instructions via the getCurrentAllocation method (see Section 2.3.2), but made one extension to this query: it added an “empty allocation” (i.e., allocation of zero resources), for jobs that are during their reservation time-window but are currently not allocated resources. Rayon opened a queue for each job that was returned by ERA, including jobs with an empty allocation, and thus it was able to run jobs earlier than they were scheduled when it was possible.
 
+我们接下来证明，通过显示云成功地使用ERA运行实际作业，将ERA与真正的云系统集成是可行的。另外，我们表明ERA模拟器提供了一个很好的逼近真实执行的结果。
+
+我们将ERA与Rayon [10]完全集成，这是一个处理计算资源保留的云系统，是Hadoop / YARN [31]（又名MapReduce 2.0）的一部分。整合所需要的首先是我们将经济考虑引入人造丝系统，因为人造丝的原始保留机制没有考虑保留的货币估值。接下来，我们通过添加一层简单的适配器类，将ERA的核心代码插入到Rayon的预留和调度过程中，这些适配器类在ERA和人造丝的API之间建立了桥梁。桥接层通过getCurrentAllocation方法（参见第2.3.2节）配置了Rayon以完全遵循ERA的指令，但对此查询做了一个扩展：它为作业添加了“空分配”（即分配零资源）在他们的预订时间窗口期间，但目前没有分配资源。 Rayon为ERA返回的每项工作打开了一个队列，其中包括分配空置的工作，因此它能够在可能的时候提前执行工作。
+
 We tested the integration by using a workload of MapReduce jobs that we generated using the Gridmix(http://hadoop.apache.org/docs/r1.2.1/gridmix.html) platform. The jobs read and wrote synthetic data from files of 100 GB created for this purpose. Eight hundred and fifteen jobs were processed, all of which finished successfully. They arrived during a period of one hour, asked on average for 3 GB memory, for a duration of 60 seconds on average (σ = 6 seconds). The cluster consisted of 3 nodes, of 80 GB memory each. Rayon’s resource manager was configured to use ERA with the simplest greedy algorithm (described above) that allocates a single resource – GB of memory (as the version of Rayon at the time allocated only memory).
 
 We ran the same job workload in the ERA simulator, with the same greedy algorithm, and a cloud model that communicates with ERA every second with no failures. The comparison between these two runs – over Rayon (Hadoop) system and in the simulator – shows that the simulator gives a good approximation to the performance of ERA on a cloud system. We found that jobs were scheduled and running on approximately similar points in time and had similar durations. The main difference between the two runs is that while the simulator assigns jobs a constant capacity throughout their (simulated) execution, the real cluster changes their capacity according to various system considerations that are out of ERA’s control. The total allocation obtained in these two runs (GB*sec) was similar: 76,730 using the simulator vs. 77,056 in the real cloud.
 
 
-我们接下来证明，通过显示云成功地使用ERA运行实际作业，将ERA与真正的云系统集成是可行的。另外，我们表明ERA模拟器提供了一个很好的逼近真实执行的结果。
-
-我们将ERA与Rayon [10]完全集成，这是一个处理计算资源保留的云系统，是Hadoop / YARN [31]（又名MapReduce 2.0）的一部分。整合所需要的首先是我们将经济考虑引入人造丝系统，因为人造丝的原始保留机制没有考虑保留的货币估值。接下来，我们通过添加一层简单的适配器类，将ERA的核心代码插入到Rayon的预留和调度过程中，这些适配器类在ERA和人造丝的API之间建立了桥梁。桥接层通过getCurrentAllocation方法（参见第2.3.2节）配置了Rayon以完全遵循ERA的指令，但对此查询做了一个扩展：它为作业添加了“空分配”（即分配零资源）在他们的预订时间窗口期间，但目前没有分配资源。 Rayon为ERA返回的每项工作打开了一个队列，其中包括分配空置的工作，因此它能够在可能的时候提前执行工作。
 
 我们通过使用我们使用Gridmix(http://hadoop.apache.org/docs/r1.2.1/gridmix.html)平台生成的MapReduce作业的工作负载来测试集成。这些作业从为此创建的100 GB文件中读取和写入合成数据。共处理了八百一十五份工作，所有这些工作都顺利完成。他们在一小时内到达，平均要求3 GB的内存，平均持续60秒（σ= 6秒）。该群集由3个节点组成，每个节点80 GB。 Rayon的资源管理器被配置为使用ERA和最简单的贪婪算法（如上所述）来分配单个资源 - GB内存（作为当时分配给内存的Rayon版本）。
 
@@ -310,26 +316,27 @@ We ran the same job workload in the ERA simulator, with the same greedy algorith
 
 
 
-*Testing Azure Batch 测试Azure Batch*
+**Testing Azure Batch 测试Azure Batch**
 
 The next set of simulations shows the advantage of using ERA over existing algorithms when applied on a cloud scale. In a typical cloud environment, we cannot expect one instance of ERA to have complete control of millions of cores. Thus, our goal here is to evaluate whether ERA will work with a subset of cores in a region, even while the underlying resource availability is constantly changing.
 
-The simulations were of a datacenter consisting of 150K cores. ERA was given access to 20% of the resources and the remaining 80% were allocated to non-ERA requests, which were modeled using the standard Azure jobs. This means that resources were constantly being allocated/freed in the underlying region and ERA had to account for this. The 20% of the resources under ERA’s management came from the pre-emptible resources, but the design does not restrict its use to pre-emptible resources alone. ERA itself was run as a layer on top of the Azure Batch simulator, which simulates batch workloads on top of the Azure simulator of Microsoft.
-
-ERA’s Basic-Econ scheduling algorithm was experimented relative to two other algorithms: (1) the on-demand algorithm, which accepts jobs if there are enough available resources to start and run them (availability is checked only for the immediate time, ignoring the duration that the resources are requested). It schedules accepted jobs to run immediately and charges a fixed price; (2) the greedy (“FirstFit”) algorithm (described above), which charges the fixed, discounted, price of 65% of the non-pre-emptible resources price.
-
-A common practice in the industry is to bound the maximal discount over non-pre-emptible machines. Accordingly, in our experiments ERA’s Basic-Econ algorithm was restricted so that the price would be no higher than the non-pre-emptible jobs and would give no more than 35% discount. Several variants of the econ algorithm were explored: (1) using either a linear predictor that is based on prior knowledge of the job distributions, or a predictor that uses past observations; (2) with or without an exponential penalty for later scheduling. Each of the variants was tested at a different capacity of the algorithm’s use, so that the higher the capacity the fewer the resources that remained as spares for re-running failed jobs.
-
-All jobs in the simulation workloads requested a time-window that started at their request-time (i.e., jobs did not reserve in advance). As ERA was getting 20% of the resources, we wanted to evaluate two measure metrics: (1) late-job percentage: this is the percentage of jobs that finished later than their deadlines; (2) accepted revenue: as we can charge only for jobs that are accepted, the better the algorithm, the more jobs we can accept. Figure 3 shows that ERA’s econ algorithm dominates the other algorithms in terms of these two desired measures.
-
-
 下一组仿真显示了当应用于云规模时使用ERA优于现有算法的优势。在典型的云环境中，我们不能期望有一个ERA实例能够完全控制数百万个核心。因此，我们的目标是评估ERA是否能够与某个地区的核心子集一起工作，即使在底层资源可用性不断变化的情况下。
+
+The simulations were of a datacenter consisting of 150K cores. ERA was given access to 20% of the resources and the remaining 80% were allocated to non-ERA requests, which were modeled using the standard Azure jobs. This means that resources were constantly being allocated/freed in the underlying region and ERA had to account for this. The 20% of the resources under ERA’s management came from the pre-emptible resources, but the design does not restrict its use to pre-emptible resources alone. ERA itself was run as a layer on top of the Azure Batch simulator, which simulates batch workloads on top of the Azure simulator of Microsoft.
 
 仿真是由150K内核组成的数据中心。 ERA获得20％的资源，其余80％分配给非ERA请求，这些请求是使用标准Azure作业建模的。这意味着资源在基础地区不断分配/释放，ERA必须对此进行解释。 ERA管理的资源中有20％来自可预先安排的资源，但该设计并未将其用途仅限于可预先安排的资源。 ERA本身作为Azure批处理模拟器的顶层运行，该模拟器模拟Microsoft Azure模拟器上的批处理工作负载。
 
+ERA’s Basic-Econ scheduling algorithm was experimented relative to two other algorithms: (1) the on-demand algorithm, which accepts jobs if there are enough available resources to start and run them (availability is checked only for the immediate time, ignoring the duration that the resources are requested). It schedules accepted jobs to run immediately and charges a fixed price; (2) the greedy (“FirstFit”) algorithm (described above), which charges the fixed, discounted, price of 65% of the non-pre-emptible resources price.
+
+
+
 ERA的Basic-Econ调度算法相对于其他两种算法进行了实验：（1）按需算法，如果有足够的可用资源来启动和运行它们，则接受作业（可用性仅在立即时间检查，忽略持续时间资源被请求）。它安排接受的工作立即运行并收取固定价格; （2）贪婪（“FirstFit”）算法（如上所述），该算法收取非固定资源价格的固定折扣价格的65％。
 
+A common practice in the industry is to bound the maximal discount over non-pre-emptible machines. Accordingly, in our experiments ERA’s Basic-Econ algorithm was restricted so that the price would be no higher than the non-pre-emptible jobs and would give no more than 35% discount. Several variants of the econ algorithm were explored: (1) using either a linear predictor that is based on prior knowledge of the job distributions, or a predictor that uses past observations; (2) with or without an exponential penalty for later scheduling. Each of the variants was tested at a different capacity of the algorithm’s use, so that the higher the capacity the fewer the resources that remained as spares for re-running failed jobs.
+
 业内普遍的做法是限制非优先机器的最大折扣。因此，在我们的实验中，ERA的Basic-Econ算法受到限制，因此价格不会高于非抢先式工作，并且折扣不会超过35％。探索了econ算法的几种变体：（1）使用基于工作分布的先验知识的线性预测器或使用过去观测的预测器; （2）对于以后的调度有或没有指数惩罚。每种变体都在算法使用的不同容量下进行测试，以便容量越高，作为重新运行失败作业的备件所剩的资源越少。
+
+All jobs in the simulation workloads requested a time-window that started at their request-time (i.e., jobs did not reserve in advance). As ERA was getting 20% of the resources, we wanted to evaluate two measure metrics: (1) late-job percentage: this is the percentage of jobs that finished later than their deadlines; (2) accepted revenue: as we can charge only for jobs that are accepted, the better the algorithm, the more jobs we can accept. Figure 3 shows that ERA’s econ algorithm dominates the other algorithms in terms of these two desired measures.
 
 仿真工作负载中的所有作业都请求一个从其请求时间开始的时间窗口（即作业没有预先保留）。随着ERA获得20％的资源，我们希望评估两个度量指标：（1）晚工作比例：这是完成时间晚于截止日期的工作的百分比; （2）接受收入：因为我们只能为被接受的工作收取费用，算法越好，我们可以接受的工作就越多。图3表明ERA的econ算法在这两个期望的度量方面占优势。
 
