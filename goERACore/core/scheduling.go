@@ -2,30 +2,21 @@ package core
 
 import "time"
 import (
-    "goERACore/cloud"
+    "encoding/json"
+    "github.com/go-redis/redis"
+    "fmt"
 )
 
-type ID int64
-type JobRequest struct {
-    Id ID
-    // 预估运行时长
-    Duration time.Duration
-    // 可接受的时间窗口
-    TwStart time.Time
-    TwEnd   time.Time
-    // 与job实体绑定的id
-    JobId ID
-    //竞价价格，单位分
-    Value uint32
-    // 预定资源
-    Resources *cloud.Resource_List
-}
+var client *redis.Client
 
-type Response2JobReq struct {
-    Id            ID
-    Accepted      bool
-    ArrivalTime   time.Time
-    AcceptedPrice uint32
+func init() {
+    client = redis.NewClient(&redis.Options{
+        Addr:     "localhost:6379",
+        Password: "", // no password set
+        DB:       0,  // use default DB
+    })
+    pong, err := client.Ping().Result()
+    fmt.Println(pong, err)
 }
 
 //Input: a new job request {W*T in [A, D), V}
@@ -56,14 +47,15 @@ func BasicEconScheduling(jobRequest *JobRequest) *Response2JobReq {
         totalCost[t] = pricingResourceList(&current_time, jobRequest.Resources)
     }
     t := findMinT(totalCost)
+    minTotalPrice := totalCost[t] // 可接受的最低价
     if jobRequest.Value >= totalCost[t] {
         start_time := jobRequest.TwStart.Add(time.Second * time.Duration(t))
-        return scheduleJob(jobRequest, &start_time)
+        return scheduleJob(jobRequest, &start_time, minTotalPrice)
     } else {
-        return rejectJobRequest(jobRequest)
+        return rejectJobRequest(jobRequest, minTotalPrice)
     }
 }
-func rejectJobRequest(request *JobRequest) *Response2JobReq {
+func rejectJobRequest(request *JobRequest, v uint32) *Response2JobReq {
     // 响应拒绝
     return &Response2JobReq{
         Id:            request.Id,
@@ -72,15 +64,28 @@ func rejectJobRequest(request *JobRequest) *Response2JobReq {
         AcceptedPrice: 0,
     }
 }
-func scheduleJob(request *JobRequest, t *time.Time) *Response2JobReq {
-    // 实际的调度器，将作业加入等候队列
-    arrivalTime := time.Time{}
-    acceptedPrice := uint32(0)
+func scheduleJob(request *JobRequest, t *time.Time, v uint32) *Response2JobReq {
+    // 将作业发布到队列中，等待真正的调度器执行调度
+    // TODO:
+
+    msg, _ := json.Marshal(Allocation{
+        JobId:     request.JobId,
+        Resources: request.Resources,
+        TStart:    *t,
+        TEnd:      t.Add(request.Duration),
+    })
+    // 发布消息（不支持历史查看） ==> cloud
+    client.Publish(REDIS_ACCEPTED_CHANNEL, msg)
+    // 添加到队列（有序集合，按启动时间+价值排序，其中启动时间优先排序）
+    client.ZAdd(REDIS_ACCEPTED_SET,
+        redis.Z{Score: float64(t.Second()) + convert2Float64LessThanOne(v),
+            Member: string(msg)})
+    // 向发起请求者返回响应 ==> user
     return &Response2JobReq{
         Id:            request.Id,
         Accepted:      true,
-        ArrivalTime:   arrivalTime,
-        AcceptedPrice: acceptedPrice,
+        ArrivalTime:   *t,
+        AcceptedPrice: v,
     }
 }
 func findMaxT(arr []uint32) uint64 {
@@ -103,4 +108,24 @@ func findMinT(arr []uint32) uint64 {
         }
     }
     return minI
+}
+
+func convert2Float64LessThanOne(n uint32) float64 {
+    // 1331 ==> 0.1331
+    // Algorithm Reference:
+    // https://stackoverflow.com/questions/701322/how-can-you-get-the-first-digit-in-an-int-c/701621#701621
+    i := float64(n)
+    if i >= 100000000 {
+        i /= 100000000
+    }
+    if i >= 10000 {
+        i /= 10000
+    }
+    if i >= 100 {
+        i /= 100
+    }
+    if i >= 10 {
+        i /= 10
+    }
+    return i / 10
 }
