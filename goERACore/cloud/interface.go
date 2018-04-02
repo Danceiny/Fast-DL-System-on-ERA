@@ -4,8 +4,20 @@ import (
     "github.com/go-redis/redis"
     "fmt"
     "encoding/json"
-    "goERACore/core"
+    . "goERACore/core"
 )
+
+var client *redis.Client
+
+func init() {
+    client = redis.NewClient(&redis.Options{
+        Addr:     "localhost:6379",
+        Password: "", // no password set
+        DB:       0,  // use default DB
+    })
+    pong, err := client.Ping().Result()
+    fmt.Println(pong, err)
+}
 
 // This is the main interface with the actual cloud scheduler. The cloud should repeatedly
 // call this method (quite often, say, every few seconds) and ask ERA for the current
@@ -41,25 +53,13 @@ func getCurrentAllocation() {
     //这个新分配保持有效，直到将来的查询返回不同的分配。底层云调度系统有责任经常查询ERA，
     //并尽快将这些新的分配生效，以便任何更改都以合理的小延迟进行。
     //ERA系统的主要职责是确保该查询的答案顺序反映了可以适应所有接受的预订请求的计划。
-    //pubSubConn := client.Subscribe(core.REDIS_ACCEPTED_CHANNEL)
-    //ch := pubSubConn.Channel()
-    //for msg := range ch {
-    //    var allocation core.Allocation
-    //    json.Unmarshal([]byte(msg.Payload), &allocation)
-    //}
+    pubSubConn := client.Subscribe(REDIS_ACCEPTED_CHANNEL)
+    ch := pubSubConn.Channel()
+    for msg := range ch {
+        var allocation Allocation
+        json.Unmarshal([]byte(msg.Payload), &allocation)
+    }
 
-}
-
-var client *redis.Client
-
-func init() {
-    client = redis.NewClient(&redis.Options{
-        Addr:     "localhost:6379",
-        Password: "", // no password set
-        DB:       0,  // use default DB
-    })
-    pong, err := client.Ping().Result()
-    fmt.Println(pong, err)
 }
 
 // Redis lib usage:

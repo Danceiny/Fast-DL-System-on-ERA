@@ -2,12 +2,13 @@ package user
 
 import (
     "net"
-    "fmt"
     "bytes"
     "time"
     "io"
     "encoding/json"
-    "goERACore/core"
+    "encoding/binary"
+    . "goERACore/core"
+    //"goERACore/core"
 )
 
 const (
@@ -19,25 +20,25 @@ const (
     REQ_EOF_CONFIRM = '\n'
 )
 
-func printLog(format string, a ...interface{}) (n int, err error) {
-    return fmt.Printf(format, a...)
-}
-func serverGo() {
+//func PrintLog(format string, a ...interface{}) (n int, err error) {
+//    return fmt.Printf(format, a...)
+//}
+func TCP_Interface() {
     var listener net.Listener
     listener, err := net.Listen(SERVER_NETWORK, SERVER_ADDRESS)
     if err != nil {
-        printLog("Listen Error: %s\n", err)
+        PrintLog("debug", "Listen Error: %s\n", err)
         return
     }
     defer listener.Close()
-    printLog("Got listener for the server. (local address: %s)\n", listener.Addr())
+    PrintLog("debug", "Got listener for the server. (local address: %s)\n", listener.Addr())
 
     for {
         conn, err := listener.Accept() // blocked until new connection arrives
         if err != nil {
-            printLog("Accept Error: %s\n", err)
+            PrintLog("debug", "Accept Error: %s\n", err)
         }
-        printLog("Established a connection with a client application. (remove address: %s)\n",
+        PrintLog("debug", "Established a connection with a client application. (remove address: %s)\n",
             conn.RemoteAddr())
         go handleConn(conn)
     }
@@ -50,28 +51,38 @@ func handleConn(conn net.Conn) {
         bytesReq, err := readBytesUntilSpecifiedEOF(conn, REQ_EOF_HEADER, REQ_EOF_CONFIRM)
         if err != nil {
             if err == io.EOF {
-                printLog("The connection is closed by another side.(Server)\n")
+                PrintLog("debug", "The connection is closed by another side.(Server)\n")
             } else {
-                printLog("Read Error: %s (Server)\n", err)
+                PrintLog("debug", "Read Error: %s (Server)\n", err)
             }
             break
         }
-        printLog("Received request: %s (Server)\n", bytesReq)
+        PrintLog("debug", "Received request: %s (Server)\n", bytesReq)
 
         // part 2
-        var jobRequest core.JobRequest
+        var jobRequest JobRequest
         json.Unmarshal(bytesReq, &jobRequest)
-        resp := core.BasicEconScheduling(&jobRequest)
-
+        //PrintLog("debug", "resources: %v", jobRequest.Resources)
+        PrintLog("debug", "resources.Gpu: %d", jobRequest.Resources.Gpu)
+        resp := BasicEconScheduling(&jobRequest)
+        PrintLog("debug", "resp struct is: %v", resp)
         respBytes, err := json.Marshal(resp)
         if err != nil {
-            printLog("marshal struct to json string, error: %s", err)
+            PrintLog("debug", "marshal struct to json string, error: %s", err)
+        } else {
+            PrintLog("debug", "respBytes is %v", respBytes)
         }
-        n, err := writeBytesWithSpecifiedEOF(conn, respBytes, REQ_EOF_HEADER, REQ_EOF_CONFIRM)
+        var lenBytes = make([]byte, 4)
+        PrintLog("debug", "respBytes length: %d", uint32(len(respBytes)))
+        binary.LittleEndian.PutUint32(lenBytes, uint32(len(respBytes)))
+        sendBytes := append(lenBytes, respBytes...)
+        PrintLog("debug", "the full bytes to send is %v, %s\n, length:%d, msg:%s", sendBytes, string(sendBytes),
+            sendBytes[:4], string(sendBytes[4:]))
+        n, err := writeBytesWithSpecifiedEOF(conn, sendBytes, REQ_EOF_HEADER, REQ_EOF_CONFIRM)
         if err != nil {
-            printLog("Write error: %s (Server)\n", err)
+            PrintLog("debug", "Write error: %s (Server)\n", err)
         }
-        printLog("Sent response (written %d bytes): %s (Server)\n", n, err)
+        PrintLog("debug", "Sent response (written %d bytes): error: %s (Server)\n", n, err)
     }
 }
 func readBytesUntilSpecifiedEOF(conn net.Conn, eof_h byte, eof_c byte) ([]byte, error) {

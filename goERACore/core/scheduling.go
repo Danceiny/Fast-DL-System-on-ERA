@@ -39,14 +39,16 @@ func init() {
 func BasicEconScheduling(jobRequest *JobRequest) *Response2JobReq {
     // 时间窗口的粒度为秒，可能过细（算法复杂度，耗时），可以考虑作调整（时间分片的粒度动态调整？）
     timeWindowDuration := uint64((jobRequest.TwEnd.Sub(jobRequest.TwStart)).Seconds())
-
+    PrintLog("debug","timeWindowDuration %d second", timeWindowDuration)
     totalCost := make([]uint32, timeWindowDuration)
     for t := uint64(0); t < timeWindowDuration; t++ {
         current_time := jobRequest.TwStart.Add(time.Second * time.Duration(t))
         estimateDemand(&current_time, -1)
         totalCost[t] = pricingResourceList(&current_time, jobRequest.Resources)
     }
+    PrintLog("debug", "totalCost is: %v ", totalCost)
     t := findMinT(totalCost)
+    PrintLog("debug", "findMinT is: %v", t)
     minTotalPrice := totalCost[t] // 可接受的最低价
     if jobRequest.Value >= totalCost[t] {
         start_time := jobRequest.TwStart.Add(time.Second * time.Duration(t))
@@ -90,7 +92,7 @@ func scheduleJob(request *JobRequest, t *time.Time, v uint32) *Response2JobReq {
 }
 func findMaxT(arr []uint32) uint64 {
     max := uint32(0)
-    maxI := uint64(-1)
+    maxI := uint64(0)
     for i, v := range arr {
         if v > max {
             maxI = uint64(i)
@@ -100,14 +102,14 @@ func findMaxT(arr []uint32) uint64 {
 }
 func findMinT(arr []uint32) uint64 {
     // TODO: 优化
-    min := uint32(0)
-    minI := uint64(-1)
+    min := arr[0]
+    minI := 0
     for i, v := range arr {
         if v < min {
-            minI = uint64(i)
+            minI = i
         }
     }
-    return minI
+    return uint64(minI)
 }
 
 func convert2Float64LessThanOne(n uint32) float64 {
