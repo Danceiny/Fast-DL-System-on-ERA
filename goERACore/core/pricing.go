@@ -3,42 +3,50 @@ package core
 import (
     "time"
     "reflect"
+    "encoding/json"
 )
 
 // 价格单位分，数据类型uint32 Range: 0 through 4294967295.
 // 因此最大价格为 4294,9672.95元人民币
 
 func pricingCpu(t *time.Time) uint32 {
-    return DEFAULT_CPU_PRICE_PER_HOUR
+    return DEFAULTCPUPRICEPERHOUR
 }
 func pricingGpu(t *time.Time) uint32 {
-    return DEFAULT_GPU_PRICE_PER_HOUR
+    return DEFAULTGPUPRICEPERHOUR
 }
 func pricingMem(t *time.Time) uint32 {
-    return DEFAULT_MEM_PRICE_PER_GB
+    return DEFAULTMEMPRICEPERGB
 }
 func pricingFramework(t *time.Time, f int32) uint32 {
-    default_price := FRAMEWORK_MAP[f].ConfigPrice
+    freqAtT := 0.1 // 在t时刻，该框架被使用的频率
+    default_price := FRAMEWORKMAP[f].ConfigPrice
     //TODO
+    // 给该框架加上一分热度
+    v, _ := json.Marshal(FRAMEWORKMAP[f])
+    client.ZIncrBy(REDISFRAMEWORKSET, 1, string(v))
+    score := client.ZScore(REDISFRAMEWORKSET, string(v)).Val()
+    // score is float64, should care type-cast
+    default_price += uint32(freqAtT * score / float64(client.ZCard(REDISFRAMEWORKSET).Val()))
     return default_price
 }
 func pricing(t *time.Time, res int32) uint32 {
     var price uint32
     switch res & 0x1000 {
-    case CPU_FLAG:
+    case CPUFLAG:
         price = pricingCpu(t)
-    case GPU_FLAG:
+    case GPUFLAG:
         price = pricingGpu(t)
-    case MEM_FLAG:
+    case MEMFLAG:
         price = pricingMem(t)
-    case FRW_FLAG:
+    case FRWFLAG:
         price = pricingFramework(t, res&0x0111)
     }
     return price
 
 }
-func pricingResourceList(t *time.Time, rl *Resource_List) uint32 {
-    PrintLog("debug", "resource list is: %v", *rl)
+func pricingResourceList(t *time.Time, rl *ResourceList) uint32 {
+    //PrintLog("debug", "resource list is: %v", *rl)
     v := reflect.ValueOf(*rl)
     count := v.NumField()
     costs := make([]uint32, count)

@@ -2,11 +2,12 @@ package cloud
 
 import (
     . "goERACore/core"
-    "github.com/gin-gonic/gin/json"
     "github.com/go-redis/redis"
+    "encoding/json"
 )
 
-var frameworkSet = DL_Framework_Map{
+//var FRAMEWORKMAP = make(map[int32]DLFramework)
+var frameworkSet = map[int32]DLFramework{
     0x0000: {
         Name:        "tensorflow-1.5",
         Namespace:   "tensorflow",
@@ -39,6 +40,6 @@ var frameworkSet = DL_Framework_Map{
 func Init_Framework_Map() {
     for _, v := range frameworkSet {
         bytes, _ := json.Marshal(v)
-        client.ZAdd(REDIS_FRAMEWORK_SET, redis.Z{0, string(bytes)})
+        client.ZAdd(REDISFRAMEWORKSET, redis.Z{0, string(bytes)})
     }
 }

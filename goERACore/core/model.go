@@ -8,7 +8,8 @@ import (
 )
 
 var (
-    FRAMEWORK_MAP DL_Framework_Map = make(DL_Framework_Map)
+    FRAMEWORKMAP       = make(map[int32]DLFramework)
+    FRAMEWORKKEYBYNAME = make(map[string]DLFramework)
 )
 
 func init() {
@@ -21,77 +22,80 @@ func init() {
     })
     pong, err := client.Ping().Result()
     fmt.Println(pong, err)
-    resp := client.ZRangeByScore(REDIS_FRAMEWORK_SET, redis.ZRangeBy{"-inf", "inf", 0, -1})
+    resp := client.ZRangeByScore(REDISFRAMEWORKSET, redis.ZRangeBy{Min: "-inf", Max: "inf", Count: -1})
     for _, item := range resp.Val() {
         // Val() ==> []string
-        dlFramework := DL_Framework{}
-        json.Unmarshal([]byte(item), dlFramework)
-        FRAMEWORK_MAP[dlFramework.Id] = dlFramework
+        dlFramework := DLFramework{}
+        if err := json.Unmarshal([]byte(item), &dlFramework); err != nil {
+            ErrorLog("unmarshall from redis to get framework, reason: %s", err)
+            continue
+        }
+        FRAMEWORKMAP[dlFramework.Id] = dlFramework
+        FRAMEWORKKEYBYNAME[dlFramework.Name] = dlFramework
     }
+    InfoLog("init from redis %s %s", FRAMEWORKMAP[1].Name, FRAMEWORKKEYBYNAME["tensorflow-1.5:py2"].Name)
 }
 
 const (
     // TODO
-    CPU_FLAG         = 0x0000
-    GPU_FLAG         = 0x1000
-    MEM_FLAG         = 0x2000
-    FRW_FLAG         = 0x3000
-    GPU_TYPE_DEFAULT = 0x0000
-    CPU_TYPE_DEFAULT = 0x0000
-    MEM_TYPE_DEFAULT = 0x0000
+    CPUFLAG        = 0x0000
+    GPUFLAG        = 0x1000
+    MEMFLAG        = 0x2000
+    FRWFLAG        = 0x3000
+    GPUTYPEDEFAULT = 0x0000
+    CPUTYPEDEFAULT = 0x0000
+    MEMTYPEDEFAULT = 0x0000
     // 框架类型（即名称）由后三个字节表示
-    FRW_TYPE_DEFAULT = 0x0000
+    FRWTYPEDEFAULT = 0x0000
 
-    REDIS_FRAMEWORK_SET    = "framework"
-    REDIS_ACCEPTED_CHANNEL = "era_accepted_queue"
-    REDIS_ACCEPTED_SET     = "era_accepted_set"
+    REDISFRAMEWORKSET    = "framework"
+    REDISACCEPTEDCHANNEL = "era_accepted_queue"
+    REDISACCEPTEDSET     = "era_accepted_set"
 
     // 计价单位：人民币分
-    DEFAULT_CPU_PRICE_PER_HOUR = 100
-    DEFAULT_GPU_PRICE_PER_HOUR = 800
-    DEFAULT_MEM_PRICE_PER_GB   = 5
+    DEFAULTCPUPRICEPERHOUR = 100
+    DEFAULTGPUPRICEPERHOUR = 800
+    DEFAULTMEMPRICEPERGB   = 5
 )
 
-var ()
-
-type Resource_List struct {
+type ResourceList struct {
     Cpu int32 `json:"cpu"` //four bytes, first byte show cpu, second show cpu type, left show number of Cpu cores
     Gpu int32 `json:"gpu"` //four bytes, first byte show gpu, second show gpu type, left show number of Gpu
     Mem int32 `json:"mem"` //four bytes, first byte show mem, second show mem type, left show GB of memory
     Frw int32 `json:"frw"` //four bytes, first byte show deep learning framework, the left show framework type(Id)
 }
 
-func (self *Resource_List) GetCpuNum() int32 {
+func (self *ResourceList) GetCpuNum() int32 {
     return self.Cpu & 0x0011
 }
-func (self *Resource_List) GetGpuNum() int32 {
+func (self *ResourceList) GetGpuNum() int32 {
     return self.Gpu & 0x0011
 }
-func (self *Resource_List) GetMemNum() int32 {
+func (self *ResourceList) GetMemNum() int32 {
     return self.Mem & 0x0011
 }
-func (self *Resource_List) GetMemType() int32 {
+func (self *ResourceList) GetMemType() int32 {
     return self.Mem & 0x0100
 }
-func (self *Resource_List) GetGpuType() int32 {
+func (self *ResourceList) GetGpuType() int32 {
     return self.Gpu & 0x0100
 }
-func (self *Resource_List) GetCpuType() int32 {
+func (self *ResourceList) GetCpuType() int32 {
     return self.Cpu & 0x0100
 }
-func (self *Resource_List) GetFrwType() int32 {
+func (self *ResourceList) GetFrwType() int32 {
     return self.Frw & 0x0111
 }
-func NewResourceList(cpuType, cpuNum, gpuType, gpuNum, memType, memNum, frwType int32) *Resource_List {
-    return &Resource_List{
-        Cpu: CPU_FLAG | cpuType | cpuNum,
-        Mem: MEM_FLAG | memType | memNum,
-        Gpu: GPU_FLAG | gpuType | gpuNum,
-        Frw: FRW_FLAG | frwType,
+func NewResourceList(cpuType, cpuNum, gpuType, gpuNum, memType, memNum, frwType int32) *ResourceList {
+    return &ResourceList{
+        Cpu: CPUFLAG | cpuType | cpuNum,
+        Mem: MEMFLAG | memType | memNum,
+        Gpu: GPUFLAG | gpuType | gpuNum,
+        Frw: FRWFLAG | frwType,
     }
 }
 
-type ID int64
+type ID string
 type JobRequest struct {
     Id ID `json:"id"`
     // 预估运行时长
@@ -104,13 +108,13 @@ type JobRequest struct {
     //竞价价格，单位分
     Value uint32 `json:"value"`
     // 预定资源
-    Resources *Resource_List `json:"resources"`
+    Resources *ResourceList `json:"resources"`
 }
 type Allocation struct {
-    JobId     ID             `json:"job_id"`
-    Resources *Resource_List `json:"resources"`
-    TStart    time.Time      `json:"t_start"`
-    TEnd      time.Time      `json:"t_end"`
+    JobId     ID            `json:"job_id"`
+    Resources *ResourceList `json:"resources"`
+    TStart    time.Time     `json:"t_start"`
+    TEnd      time.Time     `json:"t_end"`
 }
 type Response2JobReq struct {
     Id            ID        `json:"id"`
@@ -118,7 +122,7 @@ type Response2JobReq struct {
     ArrivalTime   time.Time `json:"arrival_time"`
     AcceptedPrice uint32    `json:"accepted_price"`
 }
-type Data_Ids_T []ID
+type DataIdsT []ID
 type Job struct {
     Id ID `json:"id"`
     // 实际运行时长
@@ -133,7 +137,7 @@ type Job struct {
     // 代码文件
     CodeId ID `json:"code_id"`
     // 数据文件
-    DataIds Data_Ids_T `json:"data_ids"`
+    DataIds DataIdsT `json:"data_ids"`
 
     //// 运行环境
     Env *Environment `json:"env"`
@@ -161,7 +165,7 @@ type Job struct {
     Doc string `json:"doc"`
 }
 
-type DL_Framework struct {
+type DLFramework struct {
     Name string `json:"name"` //相当于ID
     // 镜像命名空间
     Namespace string `json:"name_space"`
@@ -176,12 +180,8 @@ type DL_Framework struct {
     ConfigPrice uint32 `json:"config_price"`
 }
 type Environment struct {
-    DlFr    *DL_Framework `json:"dl_fr"`
-    Os      string        `json:"os"` // 操作系统
-    WithGpu bool          `json:"with_gpu"`
-}
-type DL_Framework_Map map[int32]DL_Framework
-
-// 竞价描述语言
-type Bid_Desc_Lang struct {
+    //DlFr    *DLFramework `json:"dl_fr"`
+    DlFrName string `json:"dl_fr_name"`
+    Os       string `json:"os"` // 操作系统
+    WithGpu  bool   `json:"with_gpu"`
 }

@@ -70,3 +70,9 @@ School of Electronic Information and Communications, HUST, Spring 2018
 ## 日程备忘录
 1. Go模块的数据建模，TCP服务器的处理流程梳理；
 2. Python客户端user/job/jobreq/resource三个重要模型的建立；
+
+
+## 调试
+1. 启动celery
+
+`sudo /Users/huangzhen/dev/miniconda3/envs/py27/bin/celery -A Platform.ERACenter.Cloud_Interface.cloud worker --autoscale=50,3 --loglevel=debug`

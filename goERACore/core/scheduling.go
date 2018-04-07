@@ -1,10 +1,9 @@
 package core
 
-import "time"
 import (
+    "time"
     "encoding/json"
     "github.com/go-redis/redis"
-    "fmt"
 )
 
 var client *redis.Client
@@ -15,8 +14,6 @@ func init() {
         Password: "", // no password set
         DB:       0,  // use default DB
     })
-    pong, err := client.Ping().Result()
-    fmt.Println(pong, err)
 }
 
 //Input: a new job request {W*T in [A, D), V}
@@ -39,21 +36,22 @@ func init() {
 func BasicEconScheduling(jobRequest *JobRequest) *Response2JobReq {
     // 时间窗口的粒度为秒，可能过细（算法复杂度，耗时），可以考虑作调整（时间分片的粒度动态调整？）
     timeWindowDuration := uint64((jobRequest.TwEnd.Sub(jobRequest.TwStart)).Seconds())
-    PrintLog("debug","timeWindowDuration %d second", timeWindowDuration)
+    PrintLog("debug", "timeWindowDuration %d second", timeWindowDuration)
     totalCost := make([]uint32, timeWindowDuration)
     for t := uint64(0); t < timeWindowDuration; t++ {
         current_time := jobRequest.TwStart.Add(time.Second * time.Duration(t))
         estimateDemand(&current_time, -1)
         totalCost[t] = pricingResourceList(&current_time, jobRequest.Resources)
     }
-    PrintLog("debug", "totalCost is: %v ", totalCost)
     t := findMinT(totalCost)
-    PrintLog("debug", "findMinT is: %v", t)
+    PrintLog("debug", "findMinT is: %d", t)
     minTotalPrice := totalCost[t] // 可接受的最低价
-    if jobRequest.Value >= totalCost[t] {
+    if jobRequest.Value >= minTotalPrice {
+        InfoLog("接受")
         start_time := jobRequest.TwStart.Add(time.Second * time.Duration(t))
         return scheduleJob(jobRequest, &start_time, minTotalPrice)
     } else {
+        InfoLog("拒绝。最低价:%d, 出价:%d", minTotalPrice, jobRequest.Value)
         return rejectJobRequest(jobRequest, minTotalPrice)
     }
 }
@@ -63,7 +61,7 @@ func rejectJobRequest(request *JobRequest, v uint32) *Response2JobReq {
         Id:            request.Id,
         Accepted:      false,
         ArrivalTime:   time.Time{},
-        AcceptedPrice: 0,
+        AcceptedPrice: v,
     }
 }
 func scheduleJob(request *JobRequest, t *time.Time, v uint32) *Response2JobReq {
@@ -76,10 +74,11 @@ func scheduleJob(request *JobRequest, t *time.Time, v uint32) *Response2JobReq {
         TStart:    *t,
         TEnd:      t.Add(request.Duration),
     })
+    InfoLog("发布任务调度消息")
     // 发布消息（不支持历史查看） ==> cloud
-    client.Publish(REDIS_ACCEPTED_CHANNEL, msg)
+    client.Publish(REDISACCEPTEDCHANNEL, msg)
     // 添加到队列（有序集合，按启动时间+价值排序，其中启动时间优先排序）
-    client.ZAdd(REDIS_ACCEPTED_SET,
+    client.ZAdd(REDISACCEPTEDSET,
         redis.Z{Score: float64(t.Second()) + convert2Float64LessThanOne(v),
             Member: string(msg)})
     // 向发起请求者返回响应 ==> user

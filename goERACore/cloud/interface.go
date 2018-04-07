@@ -2,7 +2,6 @@ package cloud
 
 import (
     "github.com/go-redis/redis"
-    "fmt"
     "encoding/json"
     . "goERACore/core"
 )
@@ -15,8 +14,6 @@ func init() {
         Password: "", // no password set
         DB:       0,  // use default DB
     })
-    pong, err := client.Ping().Result()
-    fmt.Println(pong, err)
 }
 
 // This is the main interface with the actual cloud scheduler. The cloud should repeatedly
@@ -53,7 +50,7 @@ func getCurrentAllocation() {
     //这个新分配保持有效，直到将来的查询返回不同的分配。底层云调度系统有责任经常查询ERA，
     //并尽快将这些新的分配生效，以便任何更改都以合理的小延迟进行。
     //ERA系统的主要职责是确保该查询的答案顺序反映了可以适应所有接受的预订请求的计划。
-    pubSubConn := client.Subscribe(REDIS_ACCEPTED_CHANNEL)
+    pubSubConn := client.Subscribe(REDISACCEPTEDCHANNEL)
     ch := pubSubConn.Channel()
     for msg := range ch {
         var allocation Allocation
@@ -61,28 +58,3 @@ func getCurrentAllocation() {
     }
 
 }
-
-// Redis lib usage:
-//func ExampleClient() {
-//    err := client.Set("key", "value", 0).Err()
-//    if err != nil {
-//        panic(err)
-//    }
-//
-//    val, err := client.Get("key").Result()
-//    if err != nil {
-//        panic(err)
-//    }
-//    fmt.Println("key", val)
-//
-//    val2, err := client.Get("key2").Result()
-//    if err == redis.Nil {
-//        fmt.Println("key2 does not exist")
-//    } else if err != nil {
-//        panic(err)
-//    } else {
-//        fmt.Println("key2", val2)
-//    }
-//    // Output: key value
-//    // key2 does not exist
-//}
