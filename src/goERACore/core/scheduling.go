@@ -42,8 +42,22 @@ func BasicEconScheduling(jobRequest *JobRequest) *Response2JobReq {
             ErrorLog(errMsg)
         }
     }()
-    // 时间窗口的粒度为秒，可能过细（算法复杂度，耗时），可以考虑作调整（时间分片的粒度动态调整？）
+    // 检查请求的时间窗口是否合法
+    if jobRequest.TwStart.After(jobRequest.TwEnd) {
+        jobRequest.TwStart, jobRequest.TwEnd = jobRequest.TwEnd, jobRequest.TwStart
+    }
     timeWindowDuration := jobRequest.TwEnd.Sub(jobRequest.TwStart)
+    now := time.Now()
+    if jobRequest.TwEnd.Before(now) {
+        jobRequest.TwEnd = now.Add(timeWindowDuration)
+    }
+    if jobRequest.TwStart.Before(now) {
+        DebugLog("请求的时间窗口已过期")
+        jobRequest.TwStart = now
+    }
+
+    // 时间窗口的粒度为秒，可能过细（算法复杂度，耗时），可以考虑作调整（时间分片的粒度动态调整？）
+
     totalCost := make([]uint32, timeWindowDuration/ESTIMATE_INTERVAL+1)
     DebugLog("timeWindowDuration %d second, interval %d second, array with length: %d", timeWindowDuration.Seconds(), ESTIMATE_INTERVAL.Seconds(), len(totalCost))
     //for t := uint64(0); t < timeWindowDuration; t += uint64(ESTIMATE_INTERVAL) {
