@@ -45,7 +45,7 @@ func BasicEconScheduling(jobRequest *JobRequest) *Response2JobReq {
     // 时间窗口的粒度为秒，可能过细（算法复杂度，耗时），可以考虑作调整（时间分片的粒度动态调整？）
     timeWindowDuration := jobRequest.TwEnd.Sub(jobRequest.TwStart)
     totalCost := make([]uint32, timeWindowDuration/ESTIMATE_INTERVAL+1)
-    DebugLog("timeWindowDuration %d second, interval %d second, array with length: %d", timeWindowDuration, ESTIMATE_INTERVAL, len(totalCost))
+    DebugLog("timeWindowDuration %d second, interval %d second, array with length: %d", timeWindowDuration.Seconds(), ESTIMATE_INTERVAL.Seconds(), len(totalCost))
     //for t := uint64(0); t < timeWindowDuration; t += uint64(ESTIMATE_INTERVAL) {
     //    current_time := jobRequest.TwStart.Add(time.Second * time.Duration(t))
     //    estimateDemand(&current_time, jobRequest.Resources)
@@ -59,12 +59,12 @@ func BasicEconScheduling(jobRequest *JobRequest) *Response2JobReq {
         index++
     }
     t := findMinT(totalCost)
-    DebugLog("findMinT is: %d", t)
+    arrivalTime := jobRequest.TwStart.Add(time.Duration(t+1) * ESTIMATE_INTERVAL)
+    DebugLog("findMinT got index: %d, so arrivalTime is: %v", t, arrivalTime)
     minTotalPrice := totalCost[t] // 可接受的最低价
     if jobRequest.Value >= minTotalPrice {
         InfoLog("接受")
-        start_time := jobRequest.TwStart.Add(time.Second * time.Duration(t))
-        return scheduleJob(jobRequest, &start_time, minTotalPrice)
+        return scheduleJob(jobRequest, &arrivalTime, minTotalPrice)
     } else {
         InfoLog("拒绝。最低价:%d, 出价:%d", minTotalPrice, jobRequest.Value)
         return rejectJobRequest(jobRequest, minTotalPrice)
@@ -87,6 +87,7 @@ func scheduleJob(request *JobRequest, t *time.Time, v uint32) *Response2JobReq {
         Resources: request.Resources,
         TStart:    *t,
         TEnd:      t.Add(request.Duration),
+        Value:     v,
     }
     allcName := fmt.Sprintf("accepted_%s", alloc.JobId) //重要规则！！！
     msg, err := json.Marshal(alloc)
