@@ -42,48 +42,48 @@ import "time"
 //| system_stopped     | varchar(32)  | YES  |     | NULL    |       |
 //+--------------------+--------------+------+-----+---------+-------+
 type RussellExperiment struct {
-    Id string // Y
-    DateCreated  time.Time //Y
-    DateModified time.Time //Y
-    //DateCreated  []uint8 //Y
-    //DateModified []uint8 //Y
-    IsDeleted    bool    //N
-    Name         string  //Y
-    Description  string  //Y
-    ModuleId     string  //Y
-    OwnerId      string  //Y
-    Permission   int     //N
-    LogId        string  //N
-    State        string  //Y
-    DataId       string  //N
-    FamilyId     string  //N
-    Version      int     //Y
-    Predecessor  string  //N
-    InstanceType string  //Y
-    Started      time.Time //Y
-    Ended        time.Time //Y
-    //Started  []uint8 //Y
-    //Ended    []uint8 //Y
-    Duration int     //Y
-    //Duration time.Duration
-    Canvas            string //N
-    TaskInstanceIds   string //N
-    ProjectId         string //Y
-    Mode              string //Y
-    Inputs            string //N
-    Outputs           string //N
-    Command           string //Y
-    Environment       string //Y
-    DataIds           string //Y
-    FullCommand       string //N
-    OutputSize        string //Y
-    EnableTensorboard bool   //Y
-    SystemStopped     string //N
+	Id           string    // Y
+	DateCreated  time.Time //Y
+	DateModified time.Time //Y
+	//DateCreated  []uint8 //Y
+	//DateModified []uint8 //Y
+	IsDeleted    bool      //N
+	Name         string    //Y
+	Description  string    //Y
+	ModuleId     string    //Y
+	OwnerId      string    //Y
+	Permission   int       //N
+	LogId        string    //N
+	State        string    //Y
+	DataId       string    //N
+	FamilyId     string    //N
+	Version      int       //Y
+	Predecessor  string    //N
+	InstanceType string    //Y
+	Started      time.Time //Y
+	Ended        time.Time //Y
+	//Started  []uint8 //Y
+	//Ended    []uint8 //Y
+	Duration int //Y
+	//Duration time.Duration
+	Canvas            string //N
+	TaskInstanceIds   string //N
+	ProjectId         string //Y
+	Mode              string //Y
+	Inputs            string //N
+	Outputs           string //N
+	Command           string //Y
+	Environment       string //Y
+	DataIds           string //Y
+	FullCommand       string //N
+	OutputSize        string //Y
+	EnableTensorboard bool   //Y
+	SystemStopped     string //N
 }
 
 const SELECTEXPUSEFULINFOSQL = "SELECT id,date_created,date_modified,name,description,module_id," +
-    "owner_id,state,version,instance_type,started,ended,duration,project_id,mode,Command,environment," +
-    "data_ids,output_size,enable_tensorboard FROM experiment "
+	"owner_id,state,version,instance_type,started,ended,duration,project_id,mode,Command,environment," +
+	"data_ids,output_size,enable_tensorboard FROM experiment "
 
-//SELECT * INTO OUTFILE '/var/lib/mysql-files/table.csv'
-// FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'     LINES TERMINATED BY '\n' FROM experiment;
+	//SELECT * INTO OUTFILE '/var/lib/mysql-files/table.csv'
+	// FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'     LINES TERMINATED BY '\n' FROM experiment;

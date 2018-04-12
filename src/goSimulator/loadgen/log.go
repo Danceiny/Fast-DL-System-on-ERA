@@ -1,11 +1,11 @@
 package loadgen
 
 import (
-    "goSimulator/logging"
+	"goSimulator/logging"
 )
 
 var logger logging.Logger
 
 func init() {
-    logger = logging.NewSimpleLogger()
+	logger = logging.NewSimpleLogger()
 }

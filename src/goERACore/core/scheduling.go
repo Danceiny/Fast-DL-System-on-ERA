@@ -1,10 +1,10 @@
 package core
 
 import (
-    "time"
     "encoding/json"
-    "github.com/go-redis/redis"
     "fmt"
+    "github.com/go-redis/redis"
+    "time"
 )
 
 //Input: a new job request {W*T in [A, D), V}
@@ -27,16 +27,19 @@ import (
 func BasicEconScheduling(jobRequest *JobRequest) *Response2JobReq {
     // 时间窗口的粒度为秒，可能过细（算法复杂度，耗时），可以考虑作调整（时间分片的粒度动态调整？）
     timeWindowDuration := uint64((jobRequest.TwEnd.Sub(jobRequest.TwStart)).Seconds())
-    DebugLog("timeWindowDuration %d second", timeWindowDuration)
-    totalCost := make([]uint32, timeWindowDuration)
+    totalCost := make([]uint32, timeWindowDuration/uint64(ESTIMATE_INTERVAL))
+    DebugLog("timeWindowDuration %d second, interval %d second, array with length: %d", timeWindowDuration, ESTIMATE_INTERVAL, len(totalCost))
     //for t := uint64(0); t < timeWindowDuration; t += uint64(ESTIMATE_INTERVAL) {
     //    current_time := jobRequest.TwStart.Add(time.Second * time.Duration(t))
     //    estimateDemand(&current_time, jobRequest.Resources)
     //    totalCost[t] = pricingResourceList(&current_time, jobRequest.Resources)
     //}
-    for t := jobRequest.TwStart; t.Before(jobRequest.TwEnd); t = t.Add(time.Duration(ESTIMATE_INTERVAL)) {
+    index := 0
+    for t := jobRequest.TwStart; t.Before(jobRequest.TwEnd.Add(time.Millisecond)); t = t.Add(time.Duration(ESTIMATE_INTERVAL)) {
         estimateDemand(&t, jobRequest.Resources)
-        totalCost[t.Sub(jobRequest.TwStart)] = pricingResourceList(&t, jobRequest.Resources)
+        DebugLog("timewindow array index: %s", index)
+        totalCost[index] = pricingResourceList(&t, jobRequest.Resources)
+        index++
     }
     t := findMinT(totalCost)
     DebugLog("findMinT is: %d", t)

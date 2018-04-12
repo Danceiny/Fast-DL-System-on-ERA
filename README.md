@@ -23,9 +23,10 @@ School of Electronic Information and Communications, HUST, Spring 2018
 
 ## 运行
 ```
+$ go get -u -v github.com/kardianos/govendor
 $ git clone https://github.com/Danceiny/Fast-DL-System-on-ERA.git {YOUR_DIR}
 
-$ echo -e "if [ -z "$GOPATH" ]; then\n\texport GOPATH={YOUR_DIR}\nelse\n\texport GOPATH=$GOPATH:{YOUR_DIR}" >> ~/.zshrc && source ~/.zshrc # or ~/.bashrc...
+$ echo -e "if [ -z "$GOPATH" ]; then\n\texport GOPATH={YOUR_DIR}\nelse\n\texport GOPATH=$GOPATH:{YOUR_DIR}\n" >> ~/.zshrc && source ~/.zshrc # or ~/.bashrc...
 
 $ cd {YOUR_DIR} && govendor add +external
 ```

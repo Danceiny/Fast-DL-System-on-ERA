@@ -1,19 +1,19 @@
 package cloud
 
 import (
-    "github.com/go-redis/redis"
-    //"encoding/json"
-    //. "goERACore/core"
+	"github.com/go-redis/redis"
+	//"encoding/json"
+	//. "goERACore/core"
 )
 
 var client *redis.Client
 
 func init() {
-    client = redis.NewClient(&redis.Options{
-        Addr:     "localhost:6381",
-        Password: "", // no password set
-        DB:       0,  // use default DB
-    })
+	client = redis.NewClient(&redis.Options{
+		Addr:     "localhost:6381",
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
 }
 
 // This is the main interface with the actual cloud scheduler. The cloud should repeatedly
