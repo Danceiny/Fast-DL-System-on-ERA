@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/json"
 	"github.com/go-redis/redis"
+	"time"
 )
 
 const (
@@ -14,7 +15,7 @@ const (
 
 var (
 	redisClient        *redis.Client
-	ESTIMATE_INTERVAL  = 60
+	ESTIMATE_INTERVAL  = 60 * time.Second
 	FRAMEWORKMAP       = make(map[int32]*DLFramework)
 	FRAMEWORKKEYBYNAME = make(map[string]*DLFramework)
 )

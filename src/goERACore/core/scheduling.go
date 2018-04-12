@@ -54,6 +54,7 @@ func BasicEconScheduling(jobRequest *JobRequest) *Response2JobReq {
     index := 0
     for t := jobRequest.TwStart; t.Before(jobRequest.TwEnd); t = t.Add(time.Duration(ESTIMATE_INTERVAL)) {
         estimateDemand(&t, jobRequest.Resources)
+        //DebugLog("index: %d", index)
         totalCost[index] = pricingResourceList(&t, jobRequest.Resources)
         index++
     }
