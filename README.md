@@ -21,6 +21,14 @@ Title: A Fast Deep-learning system based on Economic Resource Allocation for Clo
 
 School of Electronic Information and Communications, HUST, Spring 2018
 
+## 运行
+```
+$ git clone https://github.com/Danceiny/Fast-DL-System-on-ERA.git {YOUR_DIR}
+
+$ echo -e "if [ -z "$GOPATH" ]; then\n\texport GOPATH={YOUR_DIR}\nelse\n\texport GOPATH=$GOPATH:{YOUR_DIR}" >> ~/.zshrc && source ~/.zshrc # or ~/.bashrc...
+
+$ cd {YOUR_DIR} && govendor add +external
+```
 
 
 ### 开题答辩
