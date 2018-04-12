@@ -2,25 +2,12 @@ package core
 
 import (
     "time"
-    "github.com/go-redis/redis"
     "encoding/json"
 )
 
-var (
-    FRAMEWORKMAP       = make(map[int32]*DLFramework)
-    FRAMEWORKKEYBYNAME = make(map[string]*DLFramework)
-)
-
 func init() {
-    // 从redis中读共享配置信息
-    var client *redis.Client
-    client = redis.NewClient(&redis.Options{
-        Addr:     "localhost:6380",
-        Password: "", // no password set
-        DB:       0,  // use default DB
-    })
     // read from sorted set
-    //resp := client.ZRangeByScore(REDISFRAMEWORKSET_WITHSCORE, redis.ZRangeBy{Min: "-inf", Max: "inf", Count: -1})
+    //resp := redisClient.ZRangeByScore(REDISFRAMEWORKSET_WITHSCORE, redis.ZRangeBy{Min: "-inf", Max: "inf", Count: -1})
     //for _, item := range resp.Val() {
     //    // Val() ==> []string
     //    dlFramework := DLFramework{}
@@ -33,12 +20,12 @@ func init() {
     //}
 
     // read from hash set
-    if resp, err := client.HGetAll(REDISFRAMEWORKSET).Result(); err != nil {
+    if resp, err := redisClient.HGetAll(REDISFRAMEWORKSET).Result(); err != nil {
         ErrorLog("hgetall redisframeworkset failed, reason: %s", err)
     } else {
         if len(resp) == 0 {
             InitFrameworkMap()
-            resp = client.HGetAll(REDISFRAMEWORKSET).Val()
+            resp = redisClient.HGetAll(REDISFRAMEWORKSET).Val()
         }
         // resp: map[string]string
         for _, v := range resp {

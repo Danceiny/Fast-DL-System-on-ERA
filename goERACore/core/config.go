@@ -5,17 +5,28 @@ import (
     "encoding/json"
 )
 
-var client *redis.Client
+const (
+    RedisHost     = "test.dl.russellcloud.com"
+    RedisPort     = "6380"
+    RedisPassword = ""
+    RedisDB       = 0
+)
+
+var (
+    redisClient        *redis.Client
+    ESTIMATE_INTERVAL  = 60
+    FRAMEWORKMAP       = make(map[int32]*DLFramework)
+    FRAMEWORKKEYBYNAME = make(map[string]*DLFramework)
+)
 
 func init() {
-    client = redis.NewClient(&redis.Options{
-        Addr:     "localhost:6380",
-        Password: "", // no password set
-        DB:       0,  // use default DB
+    redisClient = redis.NewClient(&redis.Options{
+        Addr:     RedisHost + ":" + RedisPort,
+        Password: RedisPassword,
+        DB:       RedisDB,
     })
 }
 
-//var FRAMEWORKMAP = make(map[int32]DLFramework)
 var frameworkSet = map[string]DLFramework{
     "tensorflow-1.5": {
         Name:        "tensorflow-1.5",
@@ -183,10 +194,10 @@ var frameworkSet = map[string]DLFramework{
 func InitFrameworkMap() {
     framework := make(map[string]interface{})
     for k, v := range frameworkSet {
-        client.ZAdd(REDISFRAMEWORKSET_WITHSCORE, redis.Z{0, k})
+        redisClient.ZAdd(REDISFRAMEWORKSET_WITHSCORE, redis.Z{0, k})
         framework[k], _ = json.Marshal(v)
     }
-    if val, err := client.HMSet(REDISFRAMEWORKSET, framework).Result(); err != nil {
+    if val, err := redisClient.HMSet(REDISFRAMEWORKSET, framework).Result(); err != nil {
         ErrorLog("hmset redisframeworkset failed, reason: %s; val: %s", err, val)
     }
 }

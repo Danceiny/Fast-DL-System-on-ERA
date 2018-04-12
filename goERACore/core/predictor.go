@@ -19,11 +19,11 @@ func estimateDemand(t *time.Time, r *ResourceList) {
 
     //从已分配的历史队列中估计当前时刻t的运行任务列表，从而推算时刻t的资源需求
     //分配已执行的，将分数置为负值，因此范围的最小值为0
-    resp := client.ZRangeByScore(REDISACCEPTEDSET, redis.ZRangeBy{"0", "inf", 0, -1})
+    resp := redisClient.ZRangeByScore(REDISACCEPTEDSET, redis.ZRangeBy{"0", "inf", 0, -1})
     for _, item := range resp.Val() {
         // Val() ==> []string
         alloc := Allocation{}
-        if err := json.Unmarshal([]byte(client.Get(item).Val()), &alloc); err != nil {
+        if err := json.Unmarshal([]byte(redisClient.Get(item).Val()), &alloc); err != nil {
             ErrorLog("get allocation key: %s failed, reason: %s", item, err)
             continue
         }

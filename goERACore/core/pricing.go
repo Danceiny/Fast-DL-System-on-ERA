@@ -23,10 +23,10 @@ func pricingFrw(t *time.Time, f int32) uint32 {
     //TODO
     // 给该框架加上一分热度
     strV := FRAMEWORKMAP[f].Name
-    //score := client.ZScore(REDISFRAMEWORKSET_WITHSCORE, strV).Val()
-    client.ZIncrBy(REDISFRAMEWORKSET_WITHSCORE, 1, strV)
-    rank := client.ZRank(REDISFRAMEWORKSET_WITHSCORE, strV).Val()
-    count := client.ZCard(REDISFRAMEWORKSET_WITHSCORE).Val()
+    //score := redisClient.ZScore(REDISFRAMEWORKSET_WITHSCORE, strV).Val()
+    redisClient.ZIncrBy(REDISFRAMEWORKSET_WITHSCORE, 1, strV)
+    rank := redisClient.ZRank(REDISFRAMEWORKSET_WITHSCORE, strV).Val()
+    count := redisClient.ZCard(REDISFRAMEWORKSET_WITHSCORE).Val()
     // score is float64, should care type-cast
     default_price = uint32(float32(default_price) * (1 + freqAtT*(1+float32(rank/count)))) // 配置费用计算公式
     return default_price
