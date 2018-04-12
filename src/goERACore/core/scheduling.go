@@ -31,7 +31,7 @@ func BasicEconScheduling(jobRequest *JobRequest) *Response2JobReq {
         if p := recover(); p != nil {
             err, ok := interface{}(p).(error)
             var buff bytes.Buffer
-            buff.WriteString("Async call panic!")
+            buff.WriteString("BasicEconScheduling algorithm panic! ")
             if ok {
                 buff.WriteString(fmt.Sprintf("error: %s", err.Error()))
             } else {
@@ -52,7 +52,7 @@ func BasicEconScheduling(jobRequest *JobRequest) *Response2JobReq {
     //    totalCost[t] = pricingResourceList(&current_time, jobRequest.Resources)
     //}
     index := 0
-    for t := jobRequest.TwStart; t.Before(jobRequest.TwEnd.Add(time.Millisecond)); t = t.Add(time.Duration(ESTIMATE_INTERVAL)) {
+    for t := jobRequest.TwStart; t.Before(jobRequest.TwEnd); t = t.Add(time.Duration(ESTIMATE_INTERVAL)) {
         estimateDemand(&t, jobRequest.Resources)
         totalCost[index] = pricingResourceList(&t, jobRequest.Resources)
         index++
