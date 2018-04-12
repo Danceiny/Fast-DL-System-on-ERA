@@ -5,28 +5,104 @@ import (
     _ "github.com/go-sql-driver/mysql"
     "fmt"
     "time"
+    "github.com/go-redis/redis"
+    "encoding/json"
 )
 
-func estimateDemand(t *time.Time, p int64) {
-    // t时刻
-    // p价格，为负时视为省略
+func estimateDemand(t *time.Time, r *ResourceList) {
+    // t时刻的软件环境需求
+    estimateFrwDemand(t, r.Frw)
+
+    // 获取当前时刻（不一定是t时刻，通常早于t时刻）的正在使用的硬件资源情况
+    cur := time.Now()
+    rRes := getRunningSourcesAtTimeT(&cur)
+
+    //从已分配的历史队列中估计当前时刻t的运行任务列表，从而推算时刻t的资源需求
+    //分配已执行的，将分数置为负值，因此范围的最小值为0
+    resp := client.ZRangeByScore(REDISACCEPTEDSET, redis.ZRangeBy{"0", "inf", 0, -1})
+    for _, item := range resp.Val() {
+        // Val() ==> []string
+        alloc := Allocation{}
+        if err := json.Unmarshal([]byte(client.Get(item).Val()), &alloc); err != nil {
+            ErrorLog("get allocation key: %s failed, reason: %s", item, err)
+            continue
+        }
+        if t.Before(alloc.TEnd) && t.After(alloc.TStart) {
+            rRes.CpuUsed += int(alloc.Resources.GetCpuNum())
+            rRes.MemUsed += int(alloc.Resources.GetMemNum())
+            rRes.GpuUsed += int(alloc.Resources.GetGpuNum())
+        }
+    }
+}
+func estimateFrwDemand(t *time.Time, f int32) {
+    // 获取概率的时隙列表
+    //getFrwFreqAtTime(t, f) // 软件环境的使用不需要预测，硬件资源更加需要
+}
+func estimateCpuDemand(t *time.Time) {
+
+}
+func estimateGpuDemand(t *time.Time) {
+
+}
+func estimateMemDemand(t *time.Time) {
 
 }
 
-var (
-    // OjbK ^_^
-    dataSourceName = "zuiwan:zuiwan2018@tcp(api.cannot.cc:3306)/Russell?charset=utf8&parseTime=true"
-    database       *sql.DB
-    originDatas    = make([]RussellExperiment, 0)
-)
-
-func init() {
-    err := error(nil)
-    database, err = sql.Open("mysql", dataSourceName)
-    if err != nil {
-        fmt.Println(err)
+func getRunningSourcesAtTimeT(t *time.Time) *MachineUsageDetail {
+    /*
+    */
+    cpuTotal, cpuUsed, gpuTotal, gpuUsed, memTotal, memUsed := 0, 0, 0, 0, 0, 0
+    ids := getRunningClusters(t)
+    for _, id := range ids {
+        clusterUsage := getClusterUsageAtT(id, t)
+        for _, detail := range clusterUsage.HUsage.HostDetail {
+            cpuTotal += detail.CpuTotal
+            cpuUsed += detail.CpuUsed
+            gpuTotal += detail.GpuTotal
+            gpuUsed += detail.GpuUsed
+            memTotal += detail.MemTotal
+            memUsed += detail.MemUsed
+        }
     }
-    //originDatas = loadAllSourceData(originDatas)
+    return &MachineUsageDetail{
+        MemTotal: memTotal,
+        MemUsed:  memUsed,
+        GpuTotal: gpuTotal,
+        GpuUsed:  gpuUsed,
+        CpuTotal: cpuTotal,
+        CpuUsed:  cpuUsed,
+    }
+
+}
+func getClusterUsageAtT(id ID, t *time.Time) *ClusterUsage {
+    // TODO: 实时请求云，并缓存到本地的redis中
+    return &ClusterUsage{
+        ClusterId: id,
+        HUsage: &HardwareResourceUsage{
+            HostNumEmployeed: 0,
+            HostDetail: []MachineUsageDetail{
+                MachineUsageDetail{
+                    MemTotal: 0,
+                    MemUsed:  0,
+                    GpuTotal: 0,
+                    GpuUsed:  0,
+                    CpuTotal: 0,
+                    CpuUsed:  0,
+                },
+                MachineUsageDetail{
+                    MemTotal: 0,
+                    MemUsed:  0,
+                    GpuTotal: 0,
+                    GpuUsed:  0,
+                    CpuTotal: 0,
+                    CpuUsed:  0,
+                },
+            },
+        },
+    }
+}
+func getRunningClusters(t *time.Time) []ID {
+    return []ID{"c4e9436b8530e4d739970e94943b18d9f", "c13208a667ad14e048ec10b3818a60470"}
 }
 func getAveCreatedHourSlot(sources []RussellExperiment) (int, []float32) {
     /*
@@ -77,37 +153,59 @@ func getAveStartedHourSlot(sources []RussellExperiment) (int, []float32) {
     }
     return total, slotsFreq
 }
-func getFrwFreqAtTime(t *time.Time, f int32, tw time.Duration, sources []RussellExperiment) {
+func getFrwFreqAtTime(t *time.Time, f int32) (f32Freq float32) {
     /*
+    某时段的所有框架的使用频率（不按启动时刻计算，而是按框架在线频率）
     冷启动问题：由RussellCloud那边的数据给出初始评分（ordered set），后面就直接取redis评分+本地作业记录的时间来计算频率了
      */
-
+    // 时隙一小时
+    slot_num := t.Hour() // 时隙序列号
+    r := getFrwAtTimeTSlot(STARTED_TIMESTAGE, time.Hour, nil)
+    return r[f][slot_num]
 }
-func getFrwCreatedHourSlot(sources []RussellExperiment) (result map[int32]*[24]float32) {
-    // 在每个小时用户预定某框架的频率（以用户请求创建时间为准）
+func getFrwAtTimeTSlot(ts ST_TIMESTAGETYPE, slot_width time.Duration, sources []RussellExperiment) (result map[int32][]float32) {
+    // 在每个时隙内用户预定某框架的频率（以用户请求创建时间为准）
     // 返回 {框架A: [p0,...,p23],框架B: [p0,...,p23]}
     //result := make(map[int32]*[24]float32)
     if sources == nil {
         sources = loadAllSourceData(originDatas)
     }
-    slots := make([]int, 24)
+    slots := []int{}
     // 计数
     for _, source := range sources {
-        createdHour := source.DateCreated.Hour()
+        var createdT int
+        var t time.Time
+        switch slot_width {
+        case time.Hour:
+            if ts == RESERVED_TIMESTAGE {
+                t = source.DateCreated
+            } else if ts == STARTED_TIMESTAGE {
+                t = source.Started
+            }
+            createdT = t.Hour()
+        case time.Hour * 24 * 7:
+            if ts == RESERVED_TIMESTAGE {
+                t = source.DateCreated
+            } else if ts == STARTED_TIMESTAGE {
+                t = source.Started // sunday == 0, ...
+            }
+            createdT = int(t.Weekday()) // sunday == 0, ...
+        }
         if frw, ok := FRAMEWORKKEYBYNAME[source.Environment]; ok {
             // 合法的框架名
-            slots[createdHour] += 1 //该时段的总数
-            result[frw.Id][createdHour] += 1
+            slots[createdT] += 1 //该时段的总数
+            result[frw.Id][createdT] += 1
         } else {
-            WarningLog("getFrwCreatedHourSlot error")
+            WarningLog("getFrwCreatedAtSlot error")
         }
     }
     // 频率
     for _, v := range result {
-        for hour := range v {
-            v[hour] /= float32(slots[hour])
+        for i := range v {
+            v[i] /= float32(slots[i])
         }
     }
+
     return result
 }
 func statAllSourceData(sources []RussellExperiment) {
@@ -148,4 +246,20 @@ func loadAllSourceData(sources []RussellExperiment) []RussellExperiment {
         return sources
     }
 
+}
+
+var (
+    // OjbK ^_^
+    dataSourceName = "zuiwan:zuiwan2018@tcp(api.cannot.cc:3306)/Russell?charset=utf8&parseTime=true"
+    database       *sql.DB
+    originDatas    = make([]RussellExperiment, 0)
+)
+
+func init() {
+    err := error(nil)
+    database, err = sql.Open("mysql", dataSourceName)
+    if err != nil {
+        fmt.Println(err)
+    }
+    //originDatas = loadAllSourceData(originDatas)
 }

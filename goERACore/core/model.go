@@ -3,37 +3,60 @@ package core
 import (
     "time"
     "github.com/go-redis/redis"
-    "fmt"
     "encoding/json"
 )
 
 var (
-    FRAMEWORKMAP       = make(map[int32]DLFramework)
-    FRAMEWORKKEYBYNAME = make(map[string]DLFramework)
+    FRAMEWORKMAP       = make(map[int32]*DLFramework)
+    FRAMEWORKKEYBYNAME = make(map[string]*DLFramework)
 )
 
 func init() {
     // 从redis中读共享配置信息
     var client *redis.Client
     client = redis.NewClient(&redis.Options{
-        Addr:     "localhost:6379",
+        Addr:     "localhost:6380",
         Password: "", // no password set
         DB:       0,  // use default DB
     })
-    pong, err := client.Ping().Result()
-    fmt.Println(pong, err)
-    resp := client.ZRangeByScore(REDISFRAMEWORKSET, redis.ZRangeBy{Min: "-inf", Max: "inf", Count: -1})
-    for _, item := range resp.Val() {
-        // Val() ==> []string
-        dlFramework := DLFramework{}
-        if err := json.Unmarshal([]byte(item), &dlFramework); err != nil {
-            ErrorLog("unmarshall from redis to get framework, reason: %s", err)
-            continue
+    // read from sorted set
+    //resp := client.ZRangeByScore(REDISFRAMEWORKSET_WITHSCORE, redis.ZRangeBy{Min: "-inf", Max: "inf", Count: -1})
+    //for _, item := range resp.Val() {
+    //    // Val() ==> []string
+    //    dlFramework := DLFramework{}
+    //    if err := json.Unmarshal([]byte(item), &dlFramework); err != nil {
+    //        ErrorLog("unmarshall from redis to get framework, reason: %s", err)
+    //        continue
+    //    }
+    //    FRAMEWORKMAP[dlFramework.Id] = &dlFramework
+    //    FRAMEWORKKEYBYNAME[dlFramework.Name] = &dlFramework
+    //}
+
+    // read from hash set
+    if resp, err := client.HGetAll(REDISFRAMEWORKSET).Result(); err != nil {
+        ErrorLog("hgetall redisframeworkset failed, reason: %s", err)
+    } else {
+        if len(resp) == 0 {
+            InitFrameworkMap()
+            resp = client.HGetAll(REDISFRAMEWORKSET).Val()
         }
-        FRAMEWORKMAP[dlFramework.Id] = dlFramework
-        FRAMEWORKKEYBYNAME[dlFramework.Name] = dlFramework
+        // resp: map[string]string
+        for _, v := range resp {
+            dlFramework := DLFramework{}
+            if err := json.Unmarshal([]byte(v), &dlFramework); err != nil {
+                ErrorLog("unmarshall from redis to get framework, reason: %s", err)
+                continue
+            }
+            FRAMEWORKMAP[dlFramework.Id] = &dlFramework
+            FRAMEWORKKEYBYNAME[dlFramework.Name] = &dlFramework
+        }
+        if frw, ok := FRAMEWORKMAP[1]; ok {
+            DebugLog("init from redis %s %s", frw.Name, FRAMEWORKKEYBYNAME["tensorflow-1.5:py2"].Name)
+        } else {
+            ErrorLog("init failed, framework setup unknown error")
+        }
     }
-    InfoLog("init from redis %s %s", FRAMEWORKMAP[1].Name, FRAMEWORKKEYBYNAME["tensorflow-1.5:py2"].Name)
+
 }
 
 const (
@@ -48,14 +71,20 @@ const (
     // 框架类型（即名称）由后三个字节表示
     FRWTYPEDEFAULT = 0x0000
 
-    REDISFRAMEWORKSET    = "framework"
-    REDISACCEPTEDCHANNEL = "era_accepted_queue"
-    REDISACCEPTEDSET     = "era_accepted_set"
+    REDISFRAMEWORKSET_WITHSCORE = "framework_with_score"
+    REDISFRAMEWORKSET           = "framework"
+    REDISACCEPTEDCHANNEL        = "era_accepted_queue"
+    REDISACCEPTEDSET            = "era_accepted_set"
 
     // 计价单位：人民币分
     DEFAULTCPUPRICEPERHOUR = 100
     DEFAULTGPUPRICEPERHOUR = 800
     DEFAULTMEMPRICEPERGB   = 5
+
+    RESERVED_TIMESTAGE = 0
+    STARTED_TIMESTAGE  = 1
+    ENDED_TIMESTAGE    = 2
+    RUNNING_TIMESTAGE  = 3
 )
 
 type ResourceList struct {
@@ -180,8 +209,27 @@ type DLFramework struct {
     ConfigPrice uint32 `json:"config_price"`
 }
 type Environment struct {
-    //DlFr    *DLFramework `json:"dl_fr"`
     DlFrName string `json:"dl_fr_name"`
     Os       string `json:"os"` // 操作系统
     WithGpu  bool   `json:"with_gpu"`
 }
+
+type HardwareResourceUsage struct {
+    HostNumEmployeed int //主机已使用台数
+    HostDetail       []MachineUsageDetail
+}
+type ClusterUsage struct {
+    ClusterId ID
+    HUsage    *HardwareResourceUsage
+}
+
+type MachineUsageDetail struct {
+    // 所有使用的都是指的该硬件资源被（任意个在当前机器上运行的）容器独占
+    MemTotal int
+    MemUsed  int
+    GpuTotal int
+    GpuUsed  int
+    CpuTotal int
+    CpuUsed  int
+}
+type ST_TIMESTAGETYPE int8

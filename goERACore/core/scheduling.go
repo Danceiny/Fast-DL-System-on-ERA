@@ -4,18 +4,10 @@ import (
     "time"
     "encoding/json"
     "github.com/go-redis/redis"
+    "fmt"
 )
 
-var client *redis.Client
-
-func init() {
-    client = redis.NewClient(&redis.Options{
-        Addr:     "localhost:6379",
-        Password: "", // no password set
-        DB:       0,  // use default DB
-    })
-}
-
+var ESTIMATE_INTERVAL = 60
 //Input: a new job request {W*T in [A, D), V}
 //Output: accept or reject, and price if accepted
 //procedure MAKE RESERVATION
@@ -38,10 +30,14 @@ func BasicEconScheduling(jobRequest *JobRequest) *Response2JobReq {
     timeWindowDuration := uint64((jobRequest.TwEnd.Sub(jobRequest.TwStart)).Seconds())
     PrintLog("debug", "timeWindowDuration %d second", timeWindowDuration)
     totalCost := make([]uint32, timeWindowDuration)
-    for t := uint64(0); t < timeWindowDuration; t++ {
-        current_time := jobRequest.TwStart.Add(time.Second * time.Duration(t))
-        estimateDemand(&current_time, -1)
-        totalCost[t] = pricingResourceList(&current_time, jobRequest.Resources)
+    //for t := uint64(0); t < timeWindowDuration; t += uint64(ESTIMATE_INTERVAL) {
+    //    current_time := jobRequest.TwStart.Add(time.Second * time.Duration(t))
+    //    estimateDemand(&current_time, jobRequest.Resources)
+    //    totalCost[t] = pricingResourceList(&current_time, jobRequest.Resources)
+    //}
+    for t := jobRequest.TwStart; t.Before(jobRequest.TwEnd); t = t.Add(time.Duration(ESTIMATE_INTERVAL)) {
+        estimateDemand(&t, jobRequest.Resources)
+        totalCost[t.Sub(jobRequest.TwStart)] = pricingResourceList(&t, jobRequest.Resources)
     }
     t := findMinT(totalCost)
     PrintLog("debug", "findMinT is: %d", t)
@@ -67,20 +63,23 @@ func rejectJobRequest(request *JobRequest, v uint32) *Response2JobReq {
 func scheduleJob(request *JobRequest, t *time.Time, v uint32) *Response2JobReq {
     // 将作业发布到队列中，等待真正的调度器执行调度
     // TODO:
-
-    msg, _ := json.Marshal(Allocation{
+    alloc := Allocation{
         JobId:     request.JobId,
         Resources: request.Resources,
         TStart:    *t,
         TEnd:      t.Add(request.Duration),
-    })
+    }
+    allcName := fmt.Sprintf("accepted_%s", alloc.JobId)
+    msg, _ := json.Marshal(alloc)
     InfoLog("发布任务调度消息")
     // 发布消息（不支持历史查看） ==> cloud
-    client.Publish(REDISACCEPTEDCHANNEL, msg)
+    client.Publish(REDISACCEPTEDCHANNEL, allcName)
     // 添加到队列（有序集合，按启动时间+价值排序，其中启动时间优先排序）
     client.ZAdd(REDISACCEPTEDSET,
         redis.Z{Score: float64(t.Second()) + convert2Float64LessThanOne(v),
-            Member: string(msg)})
+            Member: allcName})
+    // 分配的详情存储在一个单独的键，键名为allocName
+    client.Set(allcName, msg, alloc.TEnd.Sub(time.Now())) //启动任务的deadline时刻过期
     // 向发起请求者返回响应 ==> user
     return &Response2JobReq{
         Id:            request.Id,

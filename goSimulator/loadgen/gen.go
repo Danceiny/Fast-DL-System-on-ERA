@@ -14,21 +14,66 @@ type implGenerator struct {
     lps         uint32        // 每秒载荷发送量
     durationNs  time.Duration //负载持续时间，单位：纳秒
     resultCh    chan *CallResult
-    concurrency uint32     //并发量
-    tickets     GoTickets  //goroutine票池
-    stopSign    chan byte  //停止信号的传递通道
-    cancelSign  byte       // 取消发送后续结果的信号
-    endSign     chan int64 //
-    status      GenStatus  //载荷发生器的状态
-    caller      Caller     //调用器
+    concurrency uint32      //并发量
+    tickets     GoTickets   //goroutine票池
+    stopSign    chan byte   //停止信号的传递通道
+    cancelSign  byte        // 取消发送后续结果的信号
+    endSign     chan uint64 //
+    status      GenStatus   //载荷发生器的状态
+    caller      Caller      //调用器
     callCount   uint64
 }
 
-func (self *implGenerator) Start() {
+func (gen *implGenerator) Start() {
+    logger.Infoln("Starting load generator...")
 
+    // 设定节流阀
+    var throttle <-chan time.Time
+    if gen.lps > 0 {
+        interval := time.Duration(1e9 / gen.lps)
+        logger.Infof("Setting throttle (%v)...", interval)
+        throttle = time.Tick(interval)
+    }
+
+    // 初始化停止信号
+    go func() {
+        time.AfterFunc(gen.durationNs, func() {
+            logger.Infof("Stopping load generator...")
+            gen.stopSign <- 0
+        })
+    }()
+
+    // 初始化完结信号通道
+    gen.endSign = make(chan uint64, 2)
+
+    // 初始化调用执行计数
+    gen.callCount = 0
+
+    // 设置已启动状态
+    gen.status = STATUS_STARTED
+
+    go func() {
+        // 生成载荷
+        logger.Infoln("Generating loads...")
+        gen.genLoad(throttle)
+
+        // 接收调用执行计数
+        callCount := <-gen.endSign
+        gen.status = STATUS_STOPPED
+        logger.Infof("Stopped. (callCount=%d)\n", callCount)
+    }()
 }
-func (self *implGenerator) Stop() (uint64, bool) {
-    return 0, true
+func (gen *implGenerator) Stop() (uint64, bool) {
+    if gen.stopSign == nil {
+        return 0, false
+    }
+    if gen.status != STATUS_STARTED {
+        return 0, false
+    }
+    gen.status = STATUS_STOPPED
+    gen.stopSign <- 1
+    callCount := <-gen.endSign
+    return callCount, true
 }
 func (self *implGenerator) Status() GenStatus {
     return self.status
@@ -99,7 +144,7 @@ func (gen *implGenerator) init() error {
     return nil
 }
 
-func (gen *implGenerator) genLoad(throttle <-chan time.Time, endSign chan<- uint64) {
+func (gen *implGenerator) genLoad(throttle <-chan time.Time) {
     /*
     throttle: 节流阀
     stopSign: 传递停止信号
@@ -109,8 +154,7 @@ Loop:
     for ; ; callCount++ {
         select {
         case <-gen.stopSign:
-            gen.handleStopSign()
-            endSign <- callCount
+            gen.handleStopSign(callCount)
             break Loop
         default:
 
@@ -120,30 +164,44 @@ Loop:
             select {
             case <-throttle:
             case <-gen.stopSign:
-                gen.handleStopSign()
-                endSign <- callCount
+                gen.handleStopSign(callCount)
                 break Loop
             }
         }
     }
 }
 
-func (gen *implGenerator) handleStopSign() {
+func (gen *implGenerator) handleStopSign(callCount uint64) {
     gen.cancelSign = 1
     logger.Infof("Closing result channel...")
     close(gen.resultCh)
+    // 两种载荷发生器停止方式的冲突，所以需要确认
+    gen.endSign <- callCount
+    gen.endSign <- callCount
 }
 func (gen *implGenerator) asyncCall() {
     gen.tickets.Take()
     go func() {
         defer func() {
             // 处理异常
-            if p:=recover();p!=nil{
+            if p := recover(); p != nil {
                 err, ok := interface{}(p).(error)
                 var buff bytes.Buffer
+                buff.WriteString("Async call panic!")
                 if ok {
-                    buff.WriteString("Async call panic!")
+                    buff.WriteString(fmt.Sprintf("error: %s", err.Error()))
+                } else {
+                    buff.WriteString(fmt.Sprintf("clue: %v", p))
                 }
+                buff.WriteString(")")
+                errMsg := buff.String()
+                logger.Fatalln(errMsg)
+                result := &CallResult{
+                    Id:   -1,
+                    Code: RESULT_CODE_ERROR_CALL,
+                    Msg:  errMsg,
+                }
+                gen.sendResult(result)
             }
         }()
 
@@ -152,15 +210,9 @@ func (gen *implGenerator) asyncCall() {
         timer := time.AfterFunc(gen.timeoutNs, func() {
             bTimeout = true
             result := &CallResult{
-                Id:  rawReq.Id,
-                Req: rawReq,
-                Resp: RawResp{
-                    Id:     0,
-                    Resp:   nil,
-                    Err:    nil,
-                    Elapse: 0,
-                },
-                Code: ResultCode{},
+                Id:   rawReq.Id,
+                Req:  rawReq,
+                Code: RESULT_CODE_WARNING_CALL_TIMEOUT,
                 Msg:  fmt.Sprintf("Timeout!(expected: < %v)", gen.timeoutNs),
             }
             gen.sendResult(result)
@@ -173,7 +225,7 @@ func (gen *implGenerator) asyncCall() {
                 result = &CallResult{
                     Id:     rawResp.Id,
                     Req:    rawReq,
-                    Code:   ResultCode{},
+                    Code:   RESULT_CODE_ERROR_CALL,
                     Msg:    rawResp.Err.Error(),
                     Elapse: rawResp.Elapse,
                 }

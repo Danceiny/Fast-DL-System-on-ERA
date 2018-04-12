@@ -2,15 +2,15 @@ package cloud
 
 import (
     "github.com/go-redis/redis"
-    "encoding/json"
-    . "goERACore/core"
+    //"encoding/json"
+    //. "goERACore/core"
 )
 
 var client *redis.Client
 
 func init() {
     client = redis.NewClient(&redis.Options{
-        Addr:     "localhost:6379",
+        Addr:     "localhost:6381",
         Password: "", // no password set
         DB:       0,  // use default DB
     })
@@ -43,18 +43,18 @@ func init() {
 // 另：Redis内建了发布订阅机制，该函数是否可以弃用：在接受请求后将分配发布到redis，celery订阅。
 
 // 具体的allocation，应该是一个简洁的数据结构，并且可以存放于Redis
-func getCurrentAllocation() {
-    //该方法返回一个分配，该分配是应当立即分配资源的作业的列表以及应分配给它们的资源。
-    //在单一资源的简单情况下，它是“作业J现在应获取W资源”的列表。
-    //实际云基础架构应更新当前分配给所有作业的资源，以适应当前分配结果这个查询。
-    //这个新分配保持有效，直到将来的查询返回不同的分配。底层云调度系统有责任经常查询ERA，
-    //并尽快将这些新的分配生效，以便任何更改都以合理的小延迟进行。
-    //ERA系统的主要职责是确保该查询的答案顺序反映了可以适应所有接受的预订请求的计划。
-    pubSubConn := client.Subscribe(REDISACCEPTEDCHANNEL)
-    ch := pubSubConn.Channel()
-    for msg := range ch {
-        var allocation Allocation
-        json.Unmarshal([]byte(msg.Payload), &allocation)
-    }
-
-}
+//func getCurrentAllocation() {
+//    //该方法返回一个分配，该分配是应当立即分配资源的作业的列表以及应分配给它们的资源。
+//    //在单一资源的简单情况下，它是“作业J现在应获取W资源”的列表。
+//    //实际云基础架构应更新当前分配给所有作业的资源，以适应当前分配结果这个查询。
+//    //这个新分配保持有效，直到将来的查询返回不同的分配。底层云调度系统有责任经常查询ERA，
+//    //并尽快将这些新的分配生效，以便任何更改都以合理的小延迟进行。
+//    //ERA系统的主要职责是确保该查询的答案顺序反映了可以适应所有接受的预订请求的计划。
+//    pubSubConn := client.Subscribe(REDISACCEPTEDCHANNEL)
+//    ch := pubSubConn.Channel()
+//    for msg := range ch {
+//        var allocation Allocation
+//        json.Unmarshal([]byte(msg.Payload), &allocation)
+//    }
+//
+//}
