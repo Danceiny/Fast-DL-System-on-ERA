@@ -60,7 +60,7 @@ const (
 
 	REDISFRAMEWORKSET_WITHSCORE = "framework_with_score"
 	REDISFRAMEWORKSET           = "framework"
-	REDISACCEPTEDCHANNEL        = "era_accepted_queue"
+	REDISACCEPTEDCHANNEL        = "era_accepted_channel"
 	REDISACCEPTEDSET            = "era_accepted_set"
 
 	// 计价单位：人民币分

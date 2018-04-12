@@ -43,8 +43,8 @@ func BasicEconScheduling(jobRequest *JobRequest) *Response2JobReq {
         }
     }()
     // 时间窗口的粒度为秒，可能过细（算法复杂度，耗时），可以考虑作调整（时间分片的粒度动态调整？）
-    timeWindowDuration := uint64((jobRequest.TwEnd.Sub(jobRequest.TwStart)).Seconds())
-    totalCost := make([]uint32, timeWindowDuration/uint64(ESTIMATE_INTERVAL)+1)
+    timeWindowDuration := jobRequest.TwEnd.Sub(jobRequest.TwStart)
+    totalCost := make([]uint32, timeWindowDuration/ESTIMATE_INTERVAL+1)
     DebugLog("timeWindowDuration %d second, interval %d second, array with length: %d", timeWindowDuration, ESTIMATE_INTERVAL, len(totalCost))
     //for t := uint64(0); t < timeWindowDuration; t += uint64(ESTIMATE_INTERVAL) {
     //    current_time := jobRequest.TwStart.Add(time.Second * time.Duration(t))
@@ -88,17 +88,26 @@ func scheduleJob(request *JobRequest, t *time.Time, v uint32) *Response2JobReq {
         TStart:    *t,
         TEnd:      t.Add(request.Duration),
     }
-    allcName := fmt.Sprintf("accepted_%s", alloc.JobId)
-    msg, _ := json.Marshal(alloc)
-    InfoLog("发布任务调度消息")
+    allcName := fmt.Sprintf("accepted_%s", alloc.JobId) //重要规则！！！
+    msg, err := json.Marshal(alloc)
+    if err != nil {
+        ErrorLog("marshall allocation failed, reason: %s", err)
+    }
+    InfoLog("发布任务调度消息 %s", msg)
     // 发布消息（不支持历史查看） ==> cloud
-    redisClient.Publish(REDISACCEPTEDCHANNEL, allcName)
+    if err := redisClient.Publish(REDISACCEPTEDCHANNEL, allcName).Err(); err != nil {
+        panic(err)
+    }
     // 添加到队列（有序集合，按启动时间+价值排序，其中启动时间优先排序）
-    redisClient.ZAdd(REDISACCEPTEDSET,
+    if err := redisClient.ZAdd(REDISACCEPTEDSET,
         redis.Z{Score: float64(t.Second()) + convert2Float64LessThanOne(v),
-            Member: allcName})
+            Member: allcName}).Err(); err != nil {
+        panic(err)
+    }
     // 分配的详情存储在一个单独的键，键名为allocName
-    redisClient.Set(allcName, msg, alloc.TEnd.Sub(time.Now())) //启动任务的deadline时刻过期
+    if err := redisClient.Set(allcName, msg, alloc.TEnd.Sub(time.Now())).Err(); err != nil {
+        panic(err)
+    } //启动任务的deadline时刻过期
     // 向发起请求者返回响应 ==> user
     return &Response2JobReq{
         Id:            request.Id,
