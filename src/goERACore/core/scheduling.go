@@ -5,6 +5,7 @@ import (
     "fmt"
     "github.com/go-redis/redis"
     "time"
+    "bytes"
 )
 
 //Input: a new job request {W*T in [A, D), V}
@@ -25,9 +26,25 @@ import (
 //        return reject
 //end procedure
 func BasicEconScheduling(jobRequest *JobRequest) *Response2JobReq {
+    defer func() {
+        // 处理异常
+        if p := recover(); p != nil {
+            err, ok := interface{}(p).(error)
+            var buff bytes.Buffer
+            buff.WriteString("Async call panic!")
+            if ok {
+                buff.WriteString(fmt.Sprintf("error: %s", err.Error()))
+            } else {
+                buff.WriteString(fmt.Sprintf("clue: %v", p))
+            }
+            buff.WriteString(")")
+            errMsg := buff.String()
+            ErrorLog(errMsg)
+        }
+    }()
     // 时间窗口的粒度为秒，可能过细（算法复杂度，耗时），可以考虑作调整（时间分片的粒度动态调整？）
     timeWindowDuration := uint64((jobRequest.TwEnd.Sub(jobRequest.TwStart)).Seconds())
-    totalCost := make([]uint32, timeWindowDuration/uint64(ESTIMATE_INTERVAL))
+    totalCost := make([]uint32, timeWindowDuration/uint64(ESTIMATE_INTERVAL)+1)
     DebugLog("timeWindowDuration %d second, interval %d second, array with length: %d", timeWindowDuration, ESTIMATE_INTERVAL, len(totalCost))
     //for t := uint64(0); t < timeWindowDuration; t += uint64(ESTIMATE_INTERVAL) {
     //    current_time := jobRequest.TwStart.Add(time.Second * time.Duration(t))
@@ -37,7 +54,6 @@ func BasicEconScheduling(jobRequest *JobRequest) *Response2JobReq {
     index := 0
     for t := jobRequest.TwStart; t.Before(jobRequest.TwEnd.Add(time.Millisecond)); t = t.Add(time.Duration(ESTIMATE_INTERVAL)) {
         estimateDemand(&t, jobRequest.Resources)
-        DebugLog("timewindow array index: %s", index)
         totalCost[index] = pricingResourceList(&t, jobRequest.Resources)
         index++
     }
