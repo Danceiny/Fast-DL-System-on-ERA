@@ -9,24 +9,23 @@ import (
     "time"
 )
 
-func estimateDemand(t *time.Time, r *ResourceList) {
+func estimateDemand(now *time.Time, t *time.Time, r *ResourceList) {
     // t时刻的软件环境需求
     estimateFrwDemand(t, r.Frw)
 
     // 获取当前时刻（不一定是t时刻，通常早于t时刻）的正在使用的硬件资源情况
-    cur := time.Now()
-    rRes := getRunningSourcesAtTimeT(&cur)
+    rRes := getRunningSourcesAtTimeT(now)
 
     //从已分配的历史队列中估计当前时刻t的运行任务列表，从而推算时刻t的资源需求
     //分配已执行的，将分数置为负值，因此范围的最小值为0
-    if resp, err := redisClient.ZRangeByScore(REDISACCEPTEDSET, redis.ZRangeBy{"0", "inf", 0, -1}).Result(); err != nil {
+    if resp, err := G_RedisBrokerClient.ZRangeByScore(REDISACCEPTEDSET, redis.ZRangeBy{"0", "inf", 0, -1}).Result(); err != nil {
         panic(err)
     } else {
         //DebugLog("future demand by %d allocation records", len(resp))
         for _, item := range resp {
             // Val() ==> []string
             alloc := Allocation{}
-            if record, err := redisClient.Get(item).Result(); err != nil {
+            if record, err := G_RedisBrokerClient.Get(item).Result(); err != nil {
                 //错误消息为：redis: nil，有可能是已过期
                 ErrorLog("redisclient get %s failed, reason: %s", item, err)
                 continue
@@ -42,7 +41,6 @@ func estimateDemand(t *time.Time, r *ResourceList) {
                     rRes.GpuUsed += int(alloc.Resources.GetGpuNum())
                 }
             }
-
         }
     }
 }

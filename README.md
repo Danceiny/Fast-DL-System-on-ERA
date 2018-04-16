@@ -30,7 +30,8 @@ $ echo -e "if [ -z "$GOPATH" ]; then\n\texport GOPATH={YOUR_DIR}\nelse\n\texport
 
 $ cd {YOUR_DIR} && govendor add +external
 ```
-
+## 资源描述
+参考kubernetes的cpu和mem。
 
 ### 开题答辩
 
@@ -84,4 +85,8 @@ $ cd {YOUR_DIR} && govendor add +external
 ## 调试
 1. 启动celery
 
-`sudo /Users/huangzhen/dev/miniconda3/envs/py27/bin/celery -A Platform.ERACenter.Cloud_Interface.cloud worker --autoscale=50,3 --loglevel=debug`
+`sudo celery -A Platform.ERACenter.Cloud_Interface.cloud worker -Q eracompute --autoscale=50,3 --loglevel=debug`
+`sudo celery -A Platform.ERACenter.Cloud_Interface.cloud worker -Q eraeagerjob --autoscale=5,3 --loglevel=debug`
+
+$ celery worker -l info -P processes -c 16
+$ celery worker -l info -P eventlet -c 16

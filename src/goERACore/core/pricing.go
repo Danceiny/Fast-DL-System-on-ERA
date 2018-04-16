@@ -15,6 +15,7 @@ func pricingGpu(t *time.Time) uint32 {
 	return DEFAULTGPUPRICEPERHOUR
 }
 func pricingMem(t *time.Time) uint32 {
+	//usedRetio := getMem
 	return DEFAULTMEMPRICEPERGB
 }
 func pricingFrw(t *time.Time, f int32) uint32 {
@@ -23,10 +24,10 @@ func pricingFrw(t *time.Time, f int32) uint32 {
 	//TODO
 	// 给该框架加上一分热度
 	strV := FRAMEWORKMAP[f].Name
-	//score := redisClient.ZScore(REDISFRAMEWORKSET_WITHSCORE, strV).Val()
-	redisClient.ZIncrBy(REDISFRAMEWORKSET_WITHSCORE, 1, strV)
-	rank := redisClient.ZRank(REDISFRAMEWORKSET_WITHSCORE, strV).Val()
-	count := redisClient.ZCard(REDISFRAMEWORKSET_WITHSCORE).Val()
+	//score := G_RedisBrokerClient.ZScore(REDISFRAMEWORKSET_WITHSCORE, strV).Val()
+	G_RedisBrokerClient.ZIncrBy(REDISFRAMEWORKSET_WITHSCORE, 1, strV)
+	rank := G_RedisBrokerClient.ZRank(REDISFRAMEWORKSET_WITHSCORE, strV).Val()
+	count := G_RedisBrokerClient.ZCard(REDISFRAMEWORKSET_WITHSCORE).Val()
 	// score is float64, should care type-cast
 	default_price = uint32(float32(default_price) * (1 + freqAtT*(1+float32(rank/count)))) // 配置费用计算公式
 	return default_price

@@ -7,7 +7,7 @@ import (
 
 func init() {
     // read from sorted set
-    //resp := redisClient.ZRangeByScore(REDISFRAMEWORKSET_WITHSCORE, redis.ZRangeBy{Min: "-inf", Max: "inf", Count: -1})
+    //resp := G_RedisBrokerClient.ZRangeByScore(REDISFRAMEWORKSET_WITHSCORE, redis.ZRangeBy{Min: "-inf", Max: "inf", Count: -1})
     //for _, item := range resp.Val() {
     //    // Val() ==> []string
     //    dlFramework := DLFramework{}
@@ -20,12 +20,12 @@ func init() {
     //}
 
     // read from hash set
-    if resp, err := redisClient.HGetAll(REDISFRAMEWORKSET).Result(); err != nil {
+    if resp, err := G_RedisConfigClient.HGetAll(REDISFRAMEWORKSET).Result(); err != nil {
         ErrorLog("hgetall redisframeworkset failed, reason: %s", err)
     } else {
         if len(resp) == 0 {
             InitFrameworkMap()
-            resp = redisClient.HGetAll(REDISFRAMEWORKSET).Val()
+            resp = G_RedisConfigClient.HGetAll(REDISFRAMEWORKSET).Val()
         }
         // resp: map[string]string
         for _, v := range resp {
@@ -37,8 +37,8 @@ func init() {
             FRAMEWORKMAP[dlFramework.Id] = &dlFramework
             FRAMEWORKKEYBYNAME[dlFramework.Name] = &dlFramework
         }
-        if frw, ok := FRAMEWORKMAP[1]; ok {
-            DebugLog("init from redis %s %s", frw.Name, FRAMEWORKKEYBYNAME["tensorflow-1.5:py2"].Name)
+        if _, ok := FRAMEWORKMAP[1]; ok {
+            //DebugLog("init from redis %s %s", frw.Name, FRAMEWORKKEYBYNAME["tensorflow-1.5:py2"].Name)
         } else {
             ErrorLog("init failed, framework setup unknown error")
         }

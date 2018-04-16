@@ -9,18 +9,18 @@ import (
 
 // Redis lib usage:
 //func ExampleClient() {
-//    err := client.Set("key", "value", 0).Err()
+//    err := redisClient.Set("key", "value", 0).Err()
 //    if err != nil {
 //        panic(err)
 //    }
 //
-//    val, err := client.Get("key").Result()
+//    val, err := redisClient.Get("key").Result()
 //    if err != nil {
 //        panic(err)
 //    }
 //    fmt.Println("key", val)
 //
-//    val2, err := client.Get("key2").Result()
+//    val2, err := redisClient.Get("key2").Result()
 //    if err == redis.Nil {
 //        fmt.Println("key2 does not exist")
 //    } else if err != nil {
@@ -33,7 +33,7 @@ import (
 //}
 
 func TestRedisPubSub(t *testing.T) {
-	//pubSubConn := client.Subscribe("rchat")
+	//pubSubConn := redisClient.Subscribe("rchat")
 	//ch := pubSubConn.Channel()
 	//t.Log(ch)
 	//for msg := range ch {
@@ -43,7 +43,7 @@ func TestRedisPubSub(t *testing.T) {
 
 func TestInit_Framework_Map(t *testing.T) {
 	Init_Framework_Map()
-	resp := client.ZRangeByScore(REDISFRAMEWORKSET, redis.ZRangeBy{"-inf", "inf", 0, -1})
+	resp := redisClient.ZRangeByScore(REDISFRAMEWORKSET, redis.ZRangeBy{"-inf", "inf", 0, -1})
 	for _, item := range resp.Val() {
 		// Val() ==> []string
 		dlFramework := DLFramework{}

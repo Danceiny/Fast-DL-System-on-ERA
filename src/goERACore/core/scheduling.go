@@ -67,7 +67,7 @@ func BasicEconScheduling(jobRequest *JobRequest) *Response2JobReq {
     //}
     index := 0
     for t := jobRequest.TwStart; t.Before(jobRequest.TwEnd); t = t.Add(time.Duration(ESTIMATE_INTERVAL)) {
-        estimateDemand(&t, jobRequest.Resources)
+        estimateDemand(&now, &t, jobRequest.Resources)
         //DebugLog("index: %d", index)
         totalCost[index] = pricingResourceList(&t, jobRequest.Resources)
         index++
@@ -103,25 +103,29 @@ func scheduleJob(request *JobRequest, t *time.Time, v uint32) *Response2JobReq {
         TEnd:      t.Add(request.Duration),
         Value:     v,
     }
-    allcName := fmt.Sprintf("accepted_%s", alloc.JobId) //重要规则！！！
+    allcName := GetJobAllocRedisKey(alloc.JobId) //重要规则！！！
     msg, err := json.Marshal(alloc)
     if err != nil {
         ErrorLog("marshall allocation failed, reason: %s", err)
     }
     InfoLog("发布任务调度消息 %s", msg)
     // 发布消息（不支持历史查看） ==> cloud
-    if err := redisClient.Publish(REDISACCEPTEDCHANNEL, allcName).Err(); err != nil {
-        panic(err)
+    if err := G_RedisBrokerClient.Publish(REDISACCEPTEDCHANNEL, allcName).Err(); err != nil {
+        //panic(err)
+        ErrorLog("publish task and resource allocation info failed, reason: %s", err)
     }
     // 添加到队列（有序集合，按启动时间+价值排序，其中启动时间优先排序）
-    if err := redisClient.ZAdd(REDISACCEPTEDSET,
+    // TODO：目前该有序set并没有被使用
+    if err := G_RedisBackendClient.ZAdd(REDISACCEPTEDSET,
         redis.Z{Score: float64(t.Second()) + convert2Float64LessThanOne(v),
             Member: allcName}).Err(); err != nil {
-        panic(err)
+        //panic(err)
+        WarningLog("saved to redis backend failed, reason: %s", err)
     }
-    // 分配的详情存储在一个单独的键，键名为allocName
-    if err := redisClient.Set(allcName, msg, alloc.TEnd.Sub(time.Now())).Err(); err != nil {
-        panic(err)
+    // 分配的详情，由全局可见的persis数据库保存，存储在一个单独的键，键名为allocName
+    if err := G_RedisPersisClient.Set(allcName, msg, alloc.TEnd.Sub(time.Now())).Err(); err != nil {
+        //panic(err)
+        ErrorLog("failed to save allocation detail, reason: %s", err)
     } //启动任务的deadline时刻过期
     // 向发起请求者返回响应 ==> user
     return &Response2JobReq{
