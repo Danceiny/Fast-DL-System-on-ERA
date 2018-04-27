@@ -42,8 +42,8 @@ func TestRedisPubSub(t *testing.T) {
 }
 
 func TestInit_Framework_Map(t *testing.T) {
-	Init_Framework_Map()
-	resp := redisClient.ZRangeByScore(REDISFRAMEWORKSET, redis.ZRangeBy{"-inf", "inf", 0, -1})
+	InitFrameworkMap()
+	resp := G_RedisConfigClient.ZRangeByScore(REDISFRAMEWORKSET, redis.ZRangeBy{"-inf", "inf", 0, -1})
 	for _, item := range resp.Val() {
 		// Val() ==> []string
 		dlFramework := DLFramework{}
