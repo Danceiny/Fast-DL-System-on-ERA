@@ -88,5 +88,11 @@ $ cd {YOUR_DIR} && govendor add +external
 `sudo celery -A Platform.ERACenter.Cloud_Interface.cloud worker -Q eracompute --autoscale=50,3 --loglevel=debug`
 `sudo celery -A Platform.ERACenter.Cloud_Interface.cloud worker -Q eraeagerjob --autoscale=5,3 --loglevel=debug`
 
+
+
 $ celery worker -l info -P processes -c 16
 $ celery worker -l info -P eventlet -c 16
+
+资源编排服务：
+资源编排（Resource Orchestration）是一种简单易用的云计算资源管理和自动化运维服务。用户通过模板描述多个云计算资源的依赖关系、配置等，并自动完成所有资源的创建和配置，以达到自动化部署、运维等目的。编排模板同时也是一种标准化的资源和应用交付方式，并且可以随时编辑修改，使基础设施即代码（Infrastructure as Code）成为可能。
+https://www.aliyun.com/product/ros?spm=a2c4e.11153940.blogrightarea203865.13.435919e5srXx0D
